@@ -1,0 +1,25 @@
+/* Aviso de arranque fallido (#bootFail, index.html + js/boot-check.js). Hoja aparte porque la CSP
+   (style-src 'self') no admite estilos inline. */
+#bootFail {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #20242b;
+  color: #f2f2f2;
+  font: 16px/1.5 system-ui, sans-serif;
+}
+#bootFail[hidden] { display: none; }
+#bootFail .caja {
+  max-width: 580px;
+  background: #2b313b;
+  border: 1px solid #b03a2e;
+  border-radius: 10px;
+  padding: 18px 20px;
+}
+#bootFail h1 { font-size: 18px; margin: 0 0 8px; }
+#bootFail p { margin: 8px 0; }
+#bootFail code { background: #1b1f26; padding: 1px 5px; border-radius: 4px; }
