@@ -5,6 +5,13 @@
 > firmar, sin actualizaciones automáticas, probada a fondo solo en Windows). Se puede probar desde el código
 > ([Probarlo](#probarlo)); el resto de este documento es el diseño y marca lo que falta.
 
+> **En este fork (`tdt-local-browser-only`) la app de escritorio ya no es necesaria:** el modo navegador da todo lo de
+> abajo salvo las tres excepciones documentadas (alcance `main` de los plugins, diálogos nativos del sistema,
+> bandeja/atajos globales del SO). El inventario pestaña por pestaña, el plan por fases y esas excepciones están en
+> [PARIDAD-NAVEGADOR.md](PARIDAD-NAVEGADOR.md); `desktop/` se mantiene intacto y manda cuando existe (ventana propia,
+> bandeja), y el servidor+navegador es el *fallback*. Lee este documento para entender **por qué** existe la app; lee
+> PARIDAD-NAVEGADOR.md para saber qué ya no hace falta.
+
 ## Por qué
 
 Hoy la aplicación instalada (`tdtlocal/desktop.py`, empaquetada con PyInstaller) arranca el servidor sin consola y **abre
