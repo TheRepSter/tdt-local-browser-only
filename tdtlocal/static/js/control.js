@@ -2,6 +2,8 @@
 // turned on, the page publishes a snapshot of its state, listens for the commands clients send and answers each one. With
 // it off, the page does nothing: it only asks, now and then, whether it was turned on.
 import { api, postJson, requestJson } from './api.js';
+
+import { askYesNo, browserDev, browserPlugins } from './browser-plugins.js';
 import { el } from './dom.js';
 import {
   badgeText, badgeTitle, isDevCommand, isHeadersCommand, isPluginCommand, runCommand, runDevCommand, runHeadersCommand, runPluginCommand, snapshotOf,
@@ -29,7 +31,12 @@ export function initControl(actions, plugins = null) {
   let last = '';
   let lastAt = 0;
 
-  /** What the commands about the headers need: the server, and the question to the user (a window of the system: only the desktop has it). */
+  // the question to the user: a system window in the desktop app, this page's dialog in a browser (with the honest text)
+  const confirmAsk = window.tdtDesktop && window.tdtDesktop.confirm
+    ? (message, detail) => window.tdtDesktop.confirm(message, detail)
+    : (message, detail) => askYesNo({ title: message, lines: [{ text: detail }], approveLabel: 'Aplicar', danger: true });
+
+  /** What the commands about the headers need: the server, and the question to the user. */
   const headersDeps = () => ({
     state,
     get: (id) => api('/api/headers?id=' + encodeURIComponent(id)),
@@ -37,7 +44,7 @@ export function initControl(actions, plugins = null) {
       const r = await postJson('/api/headers', { id, headers: changes, replace });
       return { ok: r.ok, data: await r.json().catch(() => null) };
     },
-    confirm: window.tdtDesktop && window.tdtDesktop.confirm ? (message, detail) => window.tdtDesktop.confirm(message, detail) : undefined,
+    confirm: confirmAsk,
   });
 
   /** What the commands about the rules need: the server, the question to the user, and telling the rest of the page that they changed. */
@@ -47,9 +54,12 @@ export function initControl(actions, plugins = null) {
       const r = await postJson('/api/rules', { rules });
       return { ok: r.ok, data: await r.json().catch(() => null) };
     },
-    confirm: window.tdtDesktop && window.tdtDesktop.confirm ? (message, detail) => window.tdtDesktop.confirm(message, detail) : undefined,
+    confirm: confirmAsk,
     changed: () => window.dispatchEvent(new Event('tdt-rules-changed')),
   });
+
+  // the plugin/dev admin commands go to the app over IPC in the desktop, over HTTP in a browser
+  const desktopLike = () => window.tdtDesktop || { plugins: { admin: browserPlugins.admin }, dev: { admin: browserDev.admin } };
 
   /** What just happened, newest first: the page is the one that sees it. */
   const recentEvents = (cmd) => {
@@ -66,8 +76,8 @@ export function initControl(actions, plugins = null) {
     }
     // the ones about the plugins can wait for the user to answer a question: they are not the page's to do
     const result = isDevCommand(data.cmd)
-      ? await runDevCommand(data.cmd, window.tdtDesktop)
-      : isPluginCommand(data.cmd) ? await runPluginCommand(data.cmd, window.tdtDesktop, plugins)
+      ? await runDevCommand(data.cmd, desktopLike())
+      : isPluginCommand(data.cmd) ? await runPluginCommand(data.cmd, desktopLike(), plugins)
         : isHeadersCommand(data.cmd) ? await runHeadersCommand(data.cmd, headersDeps())
           : isRulesCommand(data.cmd) ? await runRulesCommand(data.cmd, rulesDeps())
             : data.cmd && data.cmd.do === 'events_get' ? recentEvents(data.cmd)

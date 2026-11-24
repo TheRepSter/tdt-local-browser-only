@@ -16,6 +16,7 @@ import urllib.parse
 from typing import TYPE_CHECKING, Any
 
 from . import __version__
+from .control import ControlError, clean_command
 from .plugins import FULL_RUN_POLICY, MAX_INSTALL_BYTES, PLUGIN_POLICY, frame_ancestors
 from .settings_routes import _from_this_machine
 
@@ -141,7 +142,23 @@ CHANGE_PATHS = (
     "/api/plugins/rescan", "/api/plugins/enable", "/api/plugins/approve", "/api/plugins/permission",
     "/api/plugins/config", "/api/plugins/create", "/api/plugins/uninstall", "/api/plugins/install/commit",
     "/api/plugins/call", "/api/dev/mode", "/api/dev/approve", "/api/dev/rescan", "/api/safe/restart",
+    "/api/plugins/admin", "/api/dev/admin",
 )
+
+
+def _admin_body(handler: "Handler", body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+    """Clean the admin command again (the page that forwards it is code too) and pick the store it belongs to."""
+    cmd = body.get("cmd")
+    if not isinstance(cmd, dict):
+        return 400, {"ok": False, "detail": "falta «cmd»"}
+    try:
+        cleaned = clean_command(cmd)
+    except ControlError as exc:
+        return exc.code, {"ok": False, "detail": str(exc)}
+    from .pluginadmin import run_dev_admin, run_plugin_admin
+    if handler.path == "/api/plugins/admin":
+        return 200, run_plugin_admin(handler.app.plugins, cleaned, body.get("confirm") is True)
+    return 200, run_dev_admin(handler.app.dev, cleaned, body.get("confirm") is True)
 
 
 def _post_json(handler: "Handler", path: str) -> bool:
@@ -183,6 +200,9 @@ def _post_json(handler: "Handler", path: str) -> bool:
         handler._json(200, {"ok": True, "view": app.dev.snapshot()})
     elif path == "/api/safe/restart":
         handler._json(200, app.set_safe_mode(body.get("safe") is True))
+    elif path in ("/api/plugins/admin", "/api/dev/admin"):
+        code, result = _admin_body(handler, body)
+        handler._json(code, result)
     else:
         return False
     return True

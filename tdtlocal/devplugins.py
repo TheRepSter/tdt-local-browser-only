@@ -230,3 +230,8 @@ class DevStore:
                 + f"else (window.__tdtQueue = window.__tdtQueue || []).push([{name}, run, 'dev']);\n"
             ).encode("utf-8")
             return 200, "text/javascript; charset=utf-8", body
+
+    def admin(self, cmd: dict[str, Any], confirm: bool = False) -> dict[str, Any]:
+        """One MCP admin command about the development plugins (pluginadmin.py)."""
+        from .pluginadmin import run_dev_admin  # local import: pluginadmin reads this module
+        return run_dev_admin(self, cmd, confirm)

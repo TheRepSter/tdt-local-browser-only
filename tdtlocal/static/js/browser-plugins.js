@@ -160,7 +160,7 @@ export const browserPlugins = {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     return { saved: name, sha256: res.headers.get('X-TDT-SHA256') || '' };
   },
-  admin: () => Promise.resolve({ error: 'las preguntas de una IA sobre plugins van por el bus de control (fase 5)' }),
+  admin: (cmd) => adminFlow('/api/plugins/admin', cmd),
 };
 
 /* ------------------------------------------------------------ the plugin host's bridge (the tdtDesktop.ui shape) */
@@ -250,8 +250,27 @@ export const browserDev = {
     window.dispatchEvent(new Event('tdt-dev-changed'));
     return r.view || r;
   },
-  admin: () => Promise.resolve({ error: 'las preguntas de una IA sobre plugins de desarrollo van por el bus de control' }),
+  admin: (cmd) => adminFlow('/api/dev/admin', cmd),
 };
+
+/* ---- MCP admin commands (plugin_*, dev_*): one at a time, every question in this page's dialog ---- */
+
+const adminQueue = createQueue();
+
+async function adminFlow(path, cmd) {
+  return adminQueue(async () => {
+    let r = await postJson(path, { cmd, confirm: false }).then(jsonOf).catch(() => ({ ok: false, detail: 'el servidor local no responde' }));
+    if (r && r.needsConfirm) {
+      const ask = r.ask || {};
+      let yes;
+      if (ask.review) yes = await showReview({ ...ask.review, installs: 'Al aceptarlo se aplica exactamente lo que ves aquí.' }, 'activate');
+      else yes = await askYesNo({ title: ask.message || '¿Continuar?', lines: [{ text: ask.detail || '' }], approveLabel: 'Aceptar', danger: true });
+      if (!yes) return { ok: false, detail: 'el usuario no ha aceptado' };
+      r = await postJson(path, { cmd, confirm: true }).then(jsonOf).catch(() => ({ ok: false, detail: 'el servidor local no responde' }));
+    }
+    return r;
+  });
+}
 
 /** «Reiniciar en modo seguro» / «Salir del modo seguro» in a browser: the server is told and the page reloads. */
 export const safeRestart = async (safe) => {
