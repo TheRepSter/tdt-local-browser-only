@@ -95,6 +95,15 @@ y un commit pequeño, antes de pasar a la siguiente.
 | **8** | PWA: `manifest.json` servido por el servidor (nombre, iconos, `display: standalone`, `start_url`), ajuste «Instalar como aplicación», `--open` en modo app si se puede, favicon y Notification API para los avisos; bandeja y atajos globales documentados como inexistentes | El navegador ofrece instalar la app; los avisos llegan por Notification API |
 | **9** | Cierre: este documento actualizado (igual/cambió/las tres excepciones: alcance `main`, diálogos nativos, bandeja/atajos); `README-BROWSER.md` corto citando el proyecto original y su licencia Apache 2.0 (como exige NOTICE); los docs que decían «solo en la app» corregidos | Criterios de aceptación de abajo, todos en verde |
 
+## Estado de las fases
+
+- **Fase 0** hecha: este documento.
+- **Fase 1** hecha: `tdtlocal/plugins.py` (lógica pura + `PluginStore`), `tdtlocal/plugins_routes.py` (las rutas HTTP), `tdtlocal/pluginsign.py` (ed25519 de solo-verificar en Python puro, con vectores RFC 8032 en `tests/test_pluginsign.py`) y el cableado en `server.py` (`/plugin/<id>/…` con la CSP propia del plugin y `frame-ancestors` solo loopback; `frame-src` de la página crece con los `embed:` de los plugins activos), `app.py` y `net.py` (`follow_redirects=False` para validar cada salto). El estado del modo navegador vive en `<data>/browser/`; la app de escritorio usa `<data>/desktop/` y no se toca. Pruebas en `tests/test_plugins.py` (45 pruebas).
+  - Instalación en dos pasos: `POST /api/plugins/install/inspect` (paquete crudo ≤ 16 MB con firma en `X-TDT-Signature`, o JSON `{url, sha256, signature}`) deja el paquete en `staging/` con un `token` y la revisión; `POST /api/plugins/install/commit {token}` instala. **Instalar nunca activa.**
+  - `enable` solo enciende un plugin con permisos o full si está aprobado con la firma exacta de lo que hay en la carpeta; `full_handover()` vuelve a leer el código y a comprobar la huella SHA-256 en cada entrega: si cambió una letra, no se entrega.
+  - `/api/plugins/call` es lo que un plugin pide al servidor (storage, config, `net.fetch`); cada llamada se valida otra vez contra los permisos concedidos, y la red pasa por `plugin_fetch` (solo https, solo lo que cubre `network:<host>`, cada redirección revalidada, ≤ 1 MB de respuesta).
+  - Nota: el servidor no valida la **sintaxis** del JS de un plugin (en Python no hay motor JS); la página la detecta al ejecutarlo. Manifest, permisos, paquetes, enlaces y huellas sí se validan en el servidor.
+
 ## Requisitos de seguridad (innegociables, heredados del proyecto)
 
 - CSP de la página sin scripts ni estilos inline (hoy: `server.py` manda `script-src 'self'`, `style-src 'self'`; los temas van por constructable stylesheets, no por `<style>`).

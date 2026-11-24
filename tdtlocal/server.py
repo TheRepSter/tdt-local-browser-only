@@ -21,6 +21,8 @@ from .control_routes import handle_post as control_post
 from .headers_routes import headers_get, headers_post
 from .hls import rewrite_playlist
 from .net import Blocked
+from .plugins_routes import handle_get as plugins_get
+from .plugins_routes import handle_post as plugins_post
 from .providers_routes import providers_get, providers_post
 from .rules_routes import rules_get, rules_post
 from .scte_routes import handle_get as scte_get
@@ -43,7 +45,7 @@ CONTENT_TYPES = {
 CSP = (
     "default-src 'self'; img-src 'self' data:; font-src 'self' data:; media-src 'self' blob: data:; "
     "connect-src 'self'; worker-src 'self' blob:; script-src 'self'; style-src 'self'; base-uri 'none'; "
-    "frame-src tdt-plugin: https://www.youtube-nocookie.com https://www.youtube.com https://www.atresplayer.com{web}; "
+    "frame-src 'self' tdt-plugin: https://www.youtube-nocookie.com https://www.youtube.com https://www.atresplayer.com{web}{embeds}; "
     "form-action 'none'; frame-ancestors 'none'"
 )
 MAX_BODY = 16384
@@ -80,6 +82,7 @@ class Handler(BaseHTTPRequestHandler):
     sys_version = ""
     server: TdtServer  # type: ignore[assignment]
     _body_read = False  # the request body was read: otherwise it is dropped before the connection closes
+    _csp_sent = False  # a plugin file route already sent the plugin's own policy instead of the page's
 
     @property
     def app(self) -> App:
@@ -92,8 +95,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")
-        origin = web_origin(self.app.config)  # the one web the user chose to show during ad breaks
-        self.send_header("Content-Security-Policy", CSP.format(web=" " + origin if origin else ""))
+        if not self._csp_sent:
+            origin = web_origin(self.app.config)  # the one web the user chose to show during ad breaks
+            embeds = "".join(" https://" + host for host in self.app.plugins.embed_hosts())  # plugin embeds allowed by their permission
+            self.send_header("Content-Security-Policy", CSP.format(web=" " + origin if origin else "", embeds=embeds))
         super().end_headers()
 
     # ---- helpers
@@ -166,6 +171,7 @@ class Handler(BaseHTTPRequestHandler):
             or headers_get(self, path)
             or rules_get(self, path)
             or providers_get(self, path)
+            or plugins_get(self, path)
         ):
             return
         if path == "/api/channels":
@@ -231,6 +237,7 @@ class Handler(BaseHTTPRequestHandler):
             or headers_post(self, path)
             or rules_post(self, path)
             or providers_post(self, path)
+            or plugins_post(self, path)
         ):
             return
         if path == "/api/stt":

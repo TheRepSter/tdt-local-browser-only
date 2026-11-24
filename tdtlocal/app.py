@@ -15,6 +15,7 @@ from .health import HealthChecker
 from .hooks import Hooks
 from .logos import LogoCache
 from .net import Net
+from .plugins import PluginStore
 from .rules import RulesStore
 from .scte_watch import ScteWatcher
 from .settings import BY_NAME, SettingsStore
@@ -36,6 +37,7 @@ class App:
         self.hooks = Hooks()  # what the application lets others look at, change or replace (docs/HACKEABLE.md)
         self.trusted = Loader(self.hooks)  # the plugins with all the power that run in the server
         self.net = Net(allow_private=config.allow_private)
+        self.plugins = PluginStore(config, self.net)  # the plugins of the browser mode (docs/PARIDAD-NAVEGADOR.md)
         self.store = Store(config, self.net)
         self.feeds = FeedSyncer(config, self.store, self.net)
         self.epg = EpgSyncer(config, self.store, self.net)
@@ -80,6 +82,7 @@ class App:
         self.stop.set()
         self.control.close()
         self.transcriber.close()
+        self.plugins.close()
 
     def allow_covers(self, urls: Any) -> int:
         """Let the logo proxy fetch the covers a page names (see ``u7d.cover_ok``). Returns how many it took."""
