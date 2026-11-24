@@ -4,7 +4,7 @@ import { initAds as initEngine } from '../../../tdtlocal/static/js/adbreak.js';
 import { createHub } from '../../../tdtlocal/static/js/lib/events.js';
 import { createHooks } from '../../../tdtlocal/static/js/lib/hooks.js';
 import { createLoader } from '../../../tdtlocal/static/js/lib/trusted.js';
-import ads from '../../../tdtlocal/static/plugins/ads/page.js';
+import ads from '../../../tdtlocal/static/plugins/adbreak/page.js';
 
 export { adsEvents, adsExternal, adsTuned, adsUserVolume, setAds } from '../../../tdtlocal/static/js/adbreak.js';
 

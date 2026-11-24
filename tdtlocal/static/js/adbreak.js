@@ -1,7 +1,7 @@
 // While an ad break is on (SCTE-35), react to it. This file is the engine: it finds out when a break starts and ends, keeps the one under way and its
 // timers, and tells the hooks. WHAT is done during a break is not here: the filter «ad.reaction» says it (a list of steps, by default the user's choices
 // in the settings) and each step is an action of the registry «ad.actions». Those, and the defaults, are in the included plugin «ads»
-// (tdtlocal/static/plugins/ads/page.js), which any other plugin can add to, change or replace. What to do with each marker is in lib/adbreak.js.
+// (tdtlocal/static/plugins/adbreak/page.js), which any other plugin can add to, change or replace. What to do with each marker is in lib/adbreak.js.
 import {
   END_MARGIN, PREROLL_CONTENT_SECONDS, STALE_SECONDS, reactionTo, remainingOf, segmentStart, untilMarker, waitFor,
 } from './lib/adbreak.js';

@@ -123,7 +123,7 @@ clásico que define `Hls` antes.
   Los ajustes y la matemática del igualador (pura y probada) están en `lib/audio.js`.
 - `adbreak.js` — el **motor** de la pausa de anuncios: averigua cuándo empieza y acaba, guarda la pausa en curso y sus temporizadores, y avisa
   con los eventos `ad.started` y `ad.ended`. **Qué se hace durante la pausa no está aquí**: el filtro `ad.reaction` dice los pasos (por defecto, lo elegido
-  en Ajustes) y cada paso es una acción del registro `ad.actions`. Esas acciones y los pasos por defecto son del plugin incluido `plugins/ads/page.js`;
+  en Ajustes) y cada paso es una acción del registro `ad.actions`. Esas acciones y los pasos por defecto son del plugin incluido `plugins/adbreak/page.js`;
   cualquier otro plugin puede añadir pasos, cambiarlos o reemplazar una acción. Cuándo llega una marca, si es tardía, qué audio corresponde y qué canal
   lo decide `lib/adbreak.js`, que es puro y está probado. El audio se cambia en la casilla (`Tile.setDuck`), sin tocar el volumen guardado.
 - `hooks.js`, `lib/hooks.js`, `lib/trusted.js`, `core-plugins.js`, `plugins/<id>/` — los **ganchos** de la página (acciones = el bus de eventos, filtros con

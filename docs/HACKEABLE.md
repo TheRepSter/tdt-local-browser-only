@@ -104,7 +104,7 @@ Criterio de «bien hecho» en cada hito: lo integrado pasa **por el mismo camino
 **Hito 1, hecho en parte** (sin publicar):
 
 - Hecho: el bus (acciones con prioridad, filtros, registros) y el cargador, en la página y en el servidor, con sus pruebas; los eventos `ad.started`/`ad.ended` y la acción de servidor
-  `ad.marker`; la publicidad migrada a un plugin incluido (`tdtlocal/static/plugins/ads/`), con las mismas pruebas de comportamiento que antes y una prueba de que otro plugin puede
+  `ad.marker`; la publicidad migrada a un plugin incluido (`tdtlocal/static/plugins/adbreak/`), con las mismas pruebas de comportamiento que antes y una prueba de que otro plugin puede
   añadir un paso, quitarlo o reemplazar una acción; comprobado en una página real (el plugin incluido y uno de prueba que pone un cartel).
 - Hecho también, **sin construir otro nivel**: los **plugins de desarrollo** que ya existían (sin aislamiento, aprobados a mano, con recarga en caliente y por MCP, y que el modo seguro ya
   apaga) **reciben ahora el mismo `tdt` de ganchos** que los plugins incluidos (`tdt.on`, `tdt.filter`, `tdt.register`, `tdt.do`), con el mismo cargador (id `dev:<nombre>`, para que ninguno
@@ -130,7 +130,7 @@ Criterio de «bien hecho» en cada hito: lo integrado pasa **por el mismo camino
   que se instalan, que necesitan su propia pregunta. 
 
 Para escribir uno (hoy, desde código), un plugin de página es un módulo con `export default function setup(tdt)`; el de la publicidad es el ejemplo
-([plugins/ads/page.js](../tdtlocal/static/plugins/ads/page.js)):
+([plugins/adbreak/page.js](../tdtlocal/static/plugins/adbreak/page.js)):
 
 ```js
 export default function setup(tdt) {
