@@ -7,6 +7,8 @@ import ads from '../plugins/ads/page.js';
 
 export const INCLUDED = [{ id: 'ads', setup: ads }];
 
+const devSeen = new Map(); // dev plugin id -> fingerprint ya importado (the hot-reload poller keeps it between looks)
+
 /** Start them. They register what they bring at once (their setup is not asynchronous), so what needs them can be started right after. */
 export function loadIncluded() {
   for (const { id, setup } of INCLUDED) trusted.load(id, setup);
@@ -51,5 +53,33 @@ export async function startPluginHost(deps = {}) {
   for (const p of (data && data.plugins) || []) {
     if (p.css) css(p.id, p.css, 'full');
     if (p.code) await importRun(`/plugin-full/${encodeURIComponent(p.id)}/run.js`).catch((e) => warn('[TDT plugins]', p.id, e && e.message));
+  }
+  // development plugins of the browser mode: which are active is asked again every few seconds, and each runner is
+  // re-imported when the fingerprint of its folder changes — a file saved on disk is picked up without reloading the page
+  const fetchDev = deps.fetchDev || (async () => (await fetch('/api/dev/page', { cache: 'no-store' })).json());
+  const pollDev = async () => {
+    let list;
+    try {
+      list = ((await fetchDev()) || {}).plugins || [];
+    } catch {
+      return;
+    }
+    const seen = new Set();
+    for (const p of list) {
+      seen.add(p.id);
+      if (devSeen.get(p.id) !== p.hash) {
+        devSeen.set(p.id, p.hash);
+        await importRun(`/plugin-dev/${encodeURIComponent(p.id)}/run.js?v=${encodeURIComponent(p.hash)}`).catch((e) => warn('[TDT dev]', p.id, e && e.message));
+      }
+    }
+    for (const id of [...devSeen.keys()]) {
+      if (!seen.has(id)) { devSeen.delete(id); trusted.unload('dev:' + id); }
+    }
+  };
+  await pollDev();
+  const pollMs = deps.pollMs === undefined ? 4000 : deps.pollMs;
+  if (pollMs > 0) {
+    const timer = setInterval(pollDev, pollMs);
+    if (typeof timer.unref === 'function') timer.unref(); // in node tests the interval must not keep the process alive
   }
 }

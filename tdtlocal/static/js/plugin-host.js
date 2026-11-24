@@ -15,6 +15,8 @@ import {
   BEAT_MS, HEALTH_TEXT, MAX_PENDING, createCallLog, START_MS, PluginError, clampSize, createLimiter, dispatch, healthOf, isIdle, newStats, record, sleeps, stateKey,
   wakingFor,
 } from './lib/plugin-host.js';
+
+import { createBrowserWatch } from './lib/limits.js';
 import { snapshotOf } from './lib/control.js';
 import { events } from './events.js';
 import { setPluginSources } from './sources.js';
@@ -264,7 +266,7 @@ export function initPluginHost({ actions }) {
   }
 
   function mount(plugin) {
-    const m = { plugin, key: JSON.stringify(plugin), waiting: false, lastActive: Date.now(), pending: [], box: null, frame: null, button: null, badge: null, open: false, state: 'stopped', ready: false, loaded: false, mountedAt: 0, lastPong: 0, stats: statsOf(plugin.id), limiter: null };
+    const m = { plugin, key: JSON.stringify(plugin), waiting: false, lastActive: Date.now(), pending: [], box: null, frame: null, button: null, badge: null, open: false, state: 'stopped', ready: false, loaded: false, mountedAt: 0, lastPong: 0, lastRtt: 0, lastMem: 0, stats: statsOf(plugin.id), limiter: null };
     const badge = el('span', 'plugin-badge', '⚠ no responde');
     badge.hidden = true;
     m.badge = badge;
@@ -325,6 +327,8 @@ export function initPluginHost({ actions }) {
     }
     if (data.pong !== undefined) {
       m.lastPong = Date.now();
+      m.lastRtt = Math.max(0, m.lastPong - Number(data.pong)); // the round trip of the ping: a stuck event loop answers late
+      if (Number.isFinite(data.mem)) m.lastMem = Number(data.mem);
       if (m.state === 'unresponsive') setState(m, 'running');
       return;
     }
@@ -368,6 +372,12 @@ export function initPluginHost({ actions }) {
       setState(m, health);
       if (health === 'unresponsive' && !m.loaded && m.stats.restarts === 0 && now - m.mountedAt > START_MS) reloadFrame(m); // one more try
       else if (m.ready) send(m, { ping: now });
+    }
+    if (browserWatch) { // the limits a browser can actually see (lib/limits.js): ping round trip and the heap, if the frame reports it
+      const frames = [...mounted.values()].filter((m) => m.frame && m.ready);
+      for (const v of browserWatch.look(frames.map((m) => ({
+        id: m.plugin.id, rttMs: m.lastRtt, memoryMB: m.lastMem / 1048576, shared: frames.length > 1,
+      })))) overLimit(v.id, v.reason, v.detail);
     }
   }, BEAT_MS);
 
@@ -444,16 +454,18 @@ export function initPluginHost({ actions }) {
   // what each plugin uses (memory, processor), measured by the app, and the order to stop one that went over (see desktop/lib/plugin-limits.js)
   const usage = new Map();
   if (api.onMetrics) api.onMetrics((list) => { usage.clear(); for (const p of list) usage.set(p.id, p); });
-  if (api.onLimit) {
-    api.onLimit((id, reason, detail) => {
-      const m = mounted.get(id);
-      if (!m || !m.frame) return;
-      if (m.button) toggleScreen(id, false); else stopFrame(m);
-      m.overLimit = { reason, detail };
-      setState(m, 'over-limit');
-      note(id, 'WARN', `parado por pasarse de ${reason === 'memory' ? 'memoria' : 'procesador'}: ${detail}`);
-    });
-  }
+  /** Stop the frame of a plugin that went over its limits and say so (the user can start it again with ⟳). */
+  const overLimit = (id, reason, detail) => {
+    const m = mounted.get(id);
+    if (!m || !m.frame) return;
+    if (m.button) toggleScreen(id, false); else stopFrame(m);
+    m.overLimit = { reason, detail };
+    setState(m, 'over-limit');
+    note(id, 'WARN', `parado por pasarse de ${reason === 'memory' ? 'memoria' : 'procesador'}: ${detail}`);
+  };
+  if (api.onLimit) api.onLimit(overLimit);
+  // in a browser there are no per-process metrics: the watch works from the ping's round trip and the heap the frame reports
+  const browserWatch = api.onMetrics ? null : createBrowserWatch();
   // the user changed a setting of a plugin in the settings: the plugin is told (it needs no permission to hear about its own settings)
   if (api.onConfig) api.onConfig((id, values) => { const m = mounted.get(id); if (m && m.ready) send(m, { event: 'config.changed', data: values }); });
   sync();

@@ -1415,7 +1415,18 @@ class PluginStore:
         self.activity: dict[str, dict[str, Any]] = {}
         self.staging: dict[str, dict[str, Any]] = {}
         self._fetching: dict[str, int] = {}
+        self.safe = ""  # safe mode text (safemode.py): no plugin runs and nothing changes while it is set
         self.scan()
+
+    def set_safe(self, text: str) -> None:
+        """Safe mode on (``text`` says why) or off (""). While it is on no plugin is on and no change is accepted."""
+        with self.lock:
+            self.safe = text or ""
+
+    def _safe_refusal(self) -> dict[str, Any] | None:
+        if self.safe:
+            return {"ok": False, "detail": f"modo seguro: no se cambia nada de los plugins hasta salir de él ({self.safe})"}
+        return None
 
     # ---- discovery and state files
     def roots(self) -> list[dict[str, Any]]:
@@ -1483,6 +1494,8 @@ class PluginStore:
         return next((p for p in self.plugins if p["id"] == plugin_id), None)
 
     def is_on(self, p: dict[str, Any]) -> bool:
+        if self.safe:
+            return False  # safe mode: nothing runs, the file of choices is not touched
         if p["problems"]:
             return False
         if p["id"] not in self.enabled:
@@ -1537,7 +1550,7 @@ class PluginStore:
                     })
                 plugins.append(item)
             return {
-                "safeMode": "",  # phase 4 fills this from the crash guard of the data folder
+                "safeMode": self.safe,  # set by safemode.py (crash guard, --safe, or the settings)
                 "mode": "browser",
                 "folder": str(self.user_dir),
                 "plugins": plugins,
@@ -1546,6 +1559,9 @@ class PluginStore:
     # ---- the operations the page (and later the MCP) asks for
     def enable(self, plugin_id: str, on: bool) -> dict[str, Any]:
         with self.lock:
+            refused = self._safe_refusal()
+            if refused:
+                return refused
             p = self.find(plugin_id)
             if not p:
                 return {"ok": False, "detail": "no hay ningún plugin con ese id"}
@@ -1563,6 +1579,9 @@ class PluginStore:
     def approve(self, plugin_id: str, sig: Any) -> dict[str, Any]:
         """The user approved this plugin with this signature: it is only kept if it is exactly what the folder says now."""
         with self.lock:
+            refused = self._safe_refusal()
+            if refused:
+                return refused
             p = self.find(plugin_id)
             if not p or p["kind"] not in ("ui", "full"):
                 return {"ok": False, "detail": "no hay ningún plugin de ese tipo con ese id"}
@@ -1610,6 +1629,9 @@ class PluginStore:
 
     def set_permission(self, plugin_id: str, name: str, on: bool) -> dict[str, Any]:
         with self.lock:
+            refused = self._safe_refusal()
+            if refused:
+                return refused
             p = self.find(plugin_id)
             if not p or p["kind"] != "ui" or name not in p.get("permissions", []):
                 return {"ok": False, "detail": "el plugin no declara ese permiso"}
@@ -1624,6 +1646,9 @@ class PluginStore:
 
     def set_config(self, plugin_id: str, changes: Any) -> dict[str, Any]:
         with self.lock:
+            refused = self._safe_refusal()
+            if refused:
+                return refused
             p = self.find(plugin_id)
             if not p or p["kind"] != "ui":
                 return {"ok": False, "error": "no hay ningún plugin con permisos con ese id"}
@@ -1635,6 +1660,9 @@ class PluginStore:
 
     def create(self, name: Any, kind: str) -> dict[str, Any]:
         with self.lock:
+            refused = self._safe_refusal()
+            if refused:
+                return refused
             pid = id_from_name(name, [p["id"] for p in self.plugins])
             folder = self.user_dir / pid
             if folder.exists():
@@ -1647,6 +1675,9 @@ class PluginStore:
 
     def uninstall(self, plugin_id: str) -> dict[str, Any]:
         with self.lock:
+            refused = self._safe_refusal()
+            if refused:
+                return refused
             p = self.find(plugin_id)
             if not p:
                 return {"ok": False, "detail": "no hay ningún plugin con ese id"}
@@ -1765,6 +1796,9 @@ class PluginStore:
     def commit(self, token: Any) -> dict[str, Any]:
         """Install what was inspected, only after the user said yes (the page asks with the review in front)."""
         with self.lock:
+            refused = self._safe_refusal()
+            if refused:
+                return refused
             staged = self.staging.pop(str(token), None)
             pkg = self.staging_dir / f"{str(token)}.pkg"
             if not staged or not pkg.is_file():
@@ -1919,6 +1953,8 @@ class PluginStore:
         does not run."""
         out: list[dict[str, Any]] = []
         with self.lock:
+            if self.safe:
+                return out  # safe mode: no full plugin is handed over
             for listed in self.plugins:
                 if listed["kind"] != "full" or listed["id"] not in self.enabled:
                     continue

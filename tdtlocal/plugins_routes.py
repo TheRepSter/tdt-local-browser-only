@@ -99,9 +99,26 @@ def handle_get(handler: "Handler", path: str) -> bool:
             "Content-Disposition": f'attachment; filename="{result["filename"]}"',
             "X-TDT-SHA256": result["sha256"],
         })
+    elif path == "/api/dev/state":
+        handler._json(200, app.dev.snapshot())
+    elif path == "/api/dev/page":
+        handler._json(200, {"plugins": app.dev.page_plugins()})
     elif path.startswith("/plugin/"):
         if _plugin_file_guard(handler):
             _serve_plugin_file(handler, path)
+    elif path.startswith("/plugin-dev/"):
+        if _plugin_file_guard(handler):
+            plugin_id = urllib.parse.unquote(path[len("/plugin-dev/"):]).split("/")[0][:64]
+            status, ctype, body = handler.app.dev.serve_run(plugin_id)
+            handler._csp_sent = True
+            handler.send_response(status)
+            handler.send_header("Content-Type", ctype)
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("Content-Security-Policy", FULL_RUN_POLICY)
+            handler.send_header("Cache-Control", "no-store")  # hot reload: the page re-imports when the fingerprint changes
+            handler.end_headers()
+            if handler.command != "HEAD" and body:
+                handler.wfile.write(body)
     elif path.startswith("/plugin-full/"):
         if _plugin_file_guard(handler):
             plugin_id = urllib.parse.unquote(path[len("/plugin-full/"):]).split("/")[0][:40]
@@ -123,7 +140,7 @@ def handle_get(handler: "Handler", path: str) -> bool:
 CHANGE_PATHS = (
     "/api/plugins/rescan", "/api/plugins/enable", "/api/plugins/approve", "/api/plugins/permission",
     "/api/plugins/config", "/api/plugins/create", "/api/plugins/uninstall", "/api/plugins/install/commit",
-    "/api/plugins/call",
+    "/api/plugins/call", "/api/dev/mode", "/api/dev/approve", "/api/dev/rescan", "/api/safe/restart",
 )
 
 
@@ -157,6 +174,15 @@ def _post_json(handler: "Handler", path: str) -> bool:
     elif path == "/api/plugins/call":
         args = body.get("args")
         handler._json(200, app.plugins.call(str(body.get("id") or ""), str(body.get("method") or ""), args if isinstance(args, list) else []))
+    elif path == "/api/dev/mode":
+        handler._json(200, app.dev.set_mode(body.get("on") is True))
+    elif path == "/api/dev/approve":
+        handler._json(200, app.dev.approve(str(body.get("id") or ""), body.get("on") is True))
+    elif path == "/api/dev/rescan":
+        app.dev.scan()
+        handler._json(200, {"ok": True, "view": app.dev.snapshot()})
+    elif path == "/api/safe/restart":
+        handler._json(200, app.set_safe_mode(body.get("safe") is True))
     else:
         return False
     return True

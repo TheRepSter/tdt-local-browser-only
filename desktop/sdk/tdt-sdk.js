@@ -55,7 +55,10 @@
     if (event.source !== window.parent) return;
     const m = event.data;
     if (!m || m.tdt !== 1) return;
-    if (m.ping !== undefined) send({ pong: m.ping }); // the app asks «are you there?»: answered here, without the plugin's code
+    // the app asks «are you there?»: answered here, without the plugin's code. The round trip of this ping is also how the
+    // app notices a frame whose event loop is stuck (a loop without a pause), and `mem` is the page's JS heap when the
+    // browser reports it (performance.memory), used only when that plugin is the only frame mounted
+    if (m.ping !== undefined) send({ pong: m.ping, mem: (window.performance && performance.memory && performance.memory.usedJSHeapSize) || 0 });
     else if (m.ready) hello.resolve(Object.freeze(m.plugin));
     else if (m.event) {
       for (const fn of [...(listeners.get(m.event) || [])]) {

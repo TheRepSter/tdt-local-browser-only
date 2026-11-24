@@ -6,7 +6,9 @@ import { api, requestJson, postJson } from './api.js';
 
 import { el } from './dom.js';
 
-import { createQueue, enablePlan, planReview } from './lib/approve.js';
+import { DEV_INTRO } from './lib/dev-panel.js';
+
+import { HONEST, createQueue, enablePlan, planReview } from './lib/approve.js';
 
 const changed = () => window.dispatchEvent(new Event('tdt-plugins-changed'));
 
@@ -16,36 +18,49 @@ const jsonOf = (res) => res.json().catch(() => ({}));
 
 const ask = createQueue();
 
+/** Show a planned dialog (lib/approve.js) and resolve with what the user answered. One at a time, always. */
+export const askPlan = (plan) => ask(() => new Promise((resolve) => {
+  const dlg = el('dialog', 'dlg dlg-wide approve-dlg');
+  dlg.setAttribute('aria-labelledby', 'approveTitle');
+  const title = el('h3', '', plan.title);
+  title.id = 'approveTitle';
+  dlg.append(title);
+  for (const l of plan.lines) dlg.append(el('p', l.cls || 'dlg-hint', l.text));
+  if (plan.code) {
+    const pre = el('pre', 'approve-code');
+    pre.textContent = plan.code;
+    dlg.append(pre);
+  }
+  const actions = el('div', 'dlg-actions');
+  const no = el('button', 'btn', 'Cancelar');
+  no.type = 'button';
+  const yes = el('button', 'btn primary', plan.approveLabel);
+  yes.type = 'button';
+  if (plan.danger) yes.classList.add('danger');
+  const done = (ok) => { dlg.close(); dlg.remove(); resolve(ok); };
+  no.addEventListener('click', () => done(false));
+  yes.addEventListener('click', () => done(true));
+  dlg.addEventListener('cancel', () => done(false));
+  actions.append(no, yes);
+  dlg.append(actions);
+  document.body.append(dlg);
+  dlg.showModal();
+  yes.focus();
+}));
+
+/** A yes/no question in the page (the desktop app asks it in a system window): lines are ``{text, cls}`` or strings. */
+export function askYesNo({ title, lines = [], approveLabel = 'Aceptar', danger = false, code = '' }) {
+  return askPlan({
+    title,
+    lines: [...lines.map((l) => (typeof l === 'string' ? { text: l } : l)), { text: HONEST, cls: 'dlg-hint' }],
+    code,
+    approveLabel,
+    danger,
+  });
+}
+
 function showReview(review, kind) {
-  return ask(() => new Promise((resolve) => {
-    const plan = planReview(review, kind);
-    const dlg = el('dialog', 'dlg dlg-wide approve-dlg');
-    dlg.setAttribute('aria-labelledby', 'approveTitle');
-    const title = el('h3', '', plan.title);
-    title.id = 'approveTitle';
-    dlg.append(title);
-    for (const l of plan.lines) dlg.append(el('p', l.cls || 'dlg-hint', l.text));
-    if (plan.code) {
-      const pre = el('pre', 'approve-code');
-      pre.textContent = plan.code;
-      dlg.append(pre);
-    }
-    const actions = el('div', 'dlg-actions');
-    const no = el('button', 'btn', 'Cancelar');
-    no.type = 'button';
-    const yes = el('button', 'btn primary', plan.approveLabel);
-    yes.type = 'button';
-    if (plan.danger) yes.classList.add('danger');
-    const done = (ok) => { dlg.close(); dlg.remove(); resolve(ok); };
-    no.addEventListener('click', () => done(false));
-    yes.addEventListener('click', () => done(true));
-    dlg.addEventListener('cancel', () => done(false));
-    actions.append(no, yes);
-    dlg.append(actions);
-    document.body.append(dlg);
-    dlg.showModal();
-    yes.focus();
-  }));
+  return askPlan(planReview(review, kind));
 }
 
 /* ------------------------------------------------------------ the settings tab's plugin administration (the tdtDesktop.plugins shape) */
@@ -183,3 +198,64 @@ export const browserUi = {
 
 /** Reload the page (the desktop app reloads its window). */
 export const reloadPage = () => window.location.reload();
+
+/* ------------------------------------------------------------ the development plugins tab (the tdtDesktop.dev shape) */
+
+export const browserDev = {
+  state: async () => (await api('/api/dev/state')).data,
+  rescan: async () => {
+    const r = await postJson('/api/dev/rescan', {}).then(jsonOf);
+    window.dispatchEvent(new Event('tdt-dev-changed'));
+    return r.view || r;
+  },
+  openFolder: () => null, // a browser cannot open a folder of the file system
+  setMode: async (on) => {
+    if (!on) {
+      const r = await postJson('/api/dev/mode', { on: false }).then(jsonOf);
+      window.dispatchEvent(new Event('tdt-dev-changed'));
+      return r.view || r;
+    }
+    // turning it on ends in a question: in the app it is a system window, here it is this page's dialog
+    const yes = await askYesNo({
+      title: 'Activar el modo desarrollador',
+      lines: [{ text: DEV_INTRO, cls: 'field-error' }, { text: 'Los plugins de desarrollo corren SIN aislamiento: pueden leer y cambiar cualquier cosa de la página. Solo actívalo si sabes lo que haces.' }],
+      approveLabel: 'Activar el modo desarrollador',
+      danger: true,
+    });
+    if (!yes) return { ok: false, detail: 'no se activó', view: (await api('/api/dev/state')).data };
+    const r = await postJson('/api/dev/mode', { on: true }).then(jsonOf);
+    window.dispatchEvent(new Event('tdt-dev-changed'));
+    return r.view || r;
+  },
+  approve: async (id, on) => {
+    const view = (await api('/api/dev/state')).data;
+    if (!on) {
+      const r = await postJson('/api/dev/approve', { id, on: false }).then(jsonOf);
+      window.dispatchEvent(new Event('tdt-dev-changed'));
+      return r.view || r;
+    }
+    const p = (view && view.plugins || []).find((x) => x.id === id) || { id, name: id, scopes: [], preview: '' };
+    const yes = await askYesNo({
+      title: `Activar «${p.name || id}» (plugin de desarrollo, sin aislar)`,
+      lines: [
+        { text: `${p.name || id}${p.version ? ' ' + p.version : ''} — corre dentro de la página${p.scopes && p.scopes.length ? ' (alcance: ' + p.scopes.join(', ') + ')' : ''}.`, cls: 'approve-head' },
+        { text: 'Puede leer y cambiar cualquier cosa de la página de TDT local. Al aceptarlo se activa tal como está ahora; si cambian los alcances que declara, se te volverá a preguntar.', cls: 'field-error' },
+      ],
+      code: p.preview || '',
+      approveLabel: 'Activar',
+      danger: true,
+    });
+    if (!yes) return { ok: false, detail: 'no se activó', view };
+    const r = await postJson('/api/dev/approve', { id, on: true }).then(jsonOf);
+    window.dispatchEvent(new Event('tdt-dev-changed'));
+    return r.view || r;
+  },
+  admin: () => Promise.resolve({ error: 'las preguntas de una IA sobre plugins de desarrollo van por el bus de control' }),
+};
+
+/** «Reiniciar en modo seguro» / «Salir del modo seguro» in a browser: the server is told and the page reloads. */
+export const safeRestart = async (safe) => {
+  const r = await postJson('/api/safe/restart', { safe }).then(jsonOf).catch(() => ({ ok: false }));
+  reloadPage();
+  return r;
+};

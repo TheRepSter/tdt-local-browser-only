@@ -60,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--lan", action="store_true", help="escuchar en toda la red local (0.0.0.0), sin autenticación")
     ap.add_argument("--open", action="store_true", help="abrir el navegador")
     ap.add_argument("--quit-button", action="store_true", help="mostrar el botón «Salir» que cierra el servidor")
+    ap.add_argument("--safe", action="store_true", help="modo seguro: ningún plugin corre (se saca desde Ajustes ▸ Plugins)")
     ap.add_argument("--verbose", action="store_true", help="registrar cada petición HTTP")
     ap.add_argument(
         "--data-dir",

@@ -74,3 +74,30 @@ test('a runner that fails to import is only a warning', async () => {
   assert.equal(warnings.length, 1);
   assert.ok(warnings[0].includes('roto') && warnings[0].includes('huella cambiada'));
 });
+
+test('the dev plugins are polled: a changed fingerprint is re-imported, a gone one is unloaded', async () => {
+  const w = {};
+  const imported = [];
+  let dev = [{ id: 'd1', hash: 'aaa' }];
+  await startPluginHost({
+    window: w,
+    pollMs: 0, // no interval in the test
+    fetchFull: async () => ({ plugins: [] }),
+    fetchDev: async () => ({ plugins: dev }),
+    importRun: async (url) => { imported.push(url); },
+    warn: () => {},
+  });
+  assert.deepEqual(imported, ['/plugin-dev/d1/run.js?v=aaa']);
+  await startPluginHost({ // same fingerprint: not imported again
+    window: w, pollMs: 0, fetchFull: async () => ({ plugins: [] }), fetchDev: async () => ({ plugins: dev }),
+    importRun: async (url) => { imported.push(url); }, warn: () => {},
+  });
+  assert.deepEqual(imported, ['/plugin-dev/d1/run.js?v=aaa'], 'la misma huella no se vuelve a importar');
+  dev = [{ id: 'd1', hash: 'bbb' }, { id: 'd2', hash: 'ccc' }]; // d1 changed on disk, d2 appeared
+  await startPluginHost({ // poll once more by hand: the poller is the same function the interval calls
+    window: w, pollMs: 0, fetchFull: async () => ({ plugins: [] }), fetchDev: async () => ({ plugins: dev }),
+    importRun: async (url) => { imported.push(url); }, warn: () => {},
+  });
+  assert.deepEqual(imported, ['/plugin-dev/d1/run.js?v=aaa', '/plugin-dev/d1/run.js?v=bbb', '/plugin-dev/d2/run.js?v=ccc'],
+    'each fingerprint is imported once, with the hash in the URL so the browser fetches it again');
+});

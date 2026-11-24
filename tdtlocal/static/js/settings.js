@@ -10,7 +10,7 @@ import {
 } from './lib/plugins-panel.js';
 import { pluginHost } from './plugin-host.js';
 
-import { browserPlugins, reloadPage } from './browser-plugins.js';
+import { browserDev, browserPlugins, reloadPage, safeRestart } from './browser-plugins.js';
 import { inspectorButton } from './inspector.js';
 import { themeControl } from './themes.js';
 import {
@@ -27,10 +27,11 @@ let removeKey = null; // the "remove saved key" checkbox
 // window.tdtDesktop only exists in the desktop app; in a browser the plugins are administered over the server's HTTP API
 const desktop = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.plugins) || null;
 const pluginsApi = () => desktop() || browserPlugins; // the same calls: over IPC in the app, over HTTP in a browser
+const devApi = () => desktopDev() || browserDev;
 const desktopLogs = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.logs) || null;
 const desktopDev = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.dev) || null;
-const tabsShown = () => [...TABS, { id: 'plugins', label: 'Plugins' }, ...(desktopLogs() ? [{ id: 'logs', label: 'Registro' }] : []),
-  ...(desktopDev() ? [{ id: 'dev', label: 'Desarrollo' }] : [])];
+const tabsShown = () => [...TABS, { id: 'plugins', label: 'Plugins' }, { id: 'dev', label: 'Desarrollo' },
+  ...(desktopLogs() ? [{ id: 'logs', label: 'Registro' }] : [])];
 
 const dlg = () => $('setDlg');
 const say = (text, bad = false) => {
@@ -165,7 +166,7 @@ function adsHelp() {
 function pluginsPanel() {
   const box = el('div', 'plugins');
   box.append(el('p', 'dlg-hint', PLUGINS_INTRO));
-  if (desktopDev()) { // the development plugins live in their own tab and nothing here says so
+  { // the development plugins live in their own tab and nothing here says so
     const pointer = el('p', 'dlg-hint', DEV_POINTER + ' ');
     const go = el('button', 'btn', 'Ir a Desarrollo');
     go.type = 'button';
@@ -182,7 +183,11 @@ function pluginsPanel() {
   safeButton.type = 'button';
   safeButton.id = 'pluginSafeButton';
   safeButton.title = 'Reinicia la aplicación sin que corra ningún plugin: para encontrar uno que la rompe. No pierdes lo que tenías activado.';
-  safeButton.addEventListener('click', () => { if (window.tdtDesktop && window.tdtDesktop.safe) window.tdtDesktop.safe.restart(!safeButton.dataset.safe); });
+  safeButton.addEventListener('click', () => {
+    const inSafe = !!safeButton.dataset.safe;
+    if (window.tdtDesktop && window.tdtDesktop.safe) window.tdtDesktop.safe.restart(!inSafe);
+    else safeRestart(!inSafe); // in a browser: the server is told and the page reloads
+  });
   safe.id = 'pluginSafe';
   safe.append(safeButton, ' ', el('span', '', 'Arranca sin ningún plugin (lo que tienes activado se conserva).'));
   box.append(safe);
@@ -577,8 +582,8 @@ function devPanel() {
   mode.type = 'button';
   mode.id = 'devMode';
   mode.addEventListener('click', async () => {
-    const view = await desktopDev().state();
-    paintDev(await desktopDev().setMode(!view.mode)); // turning it on ends in a native question that this page cannot answer
+    const view = await devApi().state();
+    paintDev(await devApi().setMode(!view.mode)); // turning it on ends in a question (system window in the app, in-page dialog in a browser)
   });
   const summary = el('p', 'dlg-hint');
   summary.id = 'devSummary';
@@ -592,8 +597,9 @@ function devPanel() {
   open.addEventListener('click', () => desktopDev().openFolder());
   const rescan = el('button', 'btn', 'Buscar de nuevo');
   rescan.type = 'button';
-  rescan.addEventListener('click', async () => paintDev(await desktopDev().rescan()));
-  actions.append(open, rescan);
+  rescan.addEventListener('click', async () => paintDev(await devApi().rescan()));
+  if (desktopDev()) actions.append(open); // un navegador no puede abrir una carpeta del sistema de archivos
+  actions.append(rescan);
   const where = el('p', 'dlg-hint');
   where.id = 'devFolder';
   box.append(warn, mode, summary, list, actions, where);
@@ -622,7 +628,7 @@ function paintDev(view) {
     box.checked = d.on;
     box.disabled = !d.usable;
     box.addEventListener('change', async () => {
-      paintDev(await desktopDev().approve(plugin.id, box.checked)); // on: a native question first
+      paintDev(await devApi().approve(plugin.id, box.checked)); // on: a question first (native window in the app, in-page dialog in a browser)
     });
     label.append(box, el('strong', '', ' ' + d.title));
     item.append(label);
@@ -634,7 +640,7 @@ function paintDev(view) {
 }
 
 async function loadDev() {
-  if (desktopDev()) paintDev(await desktopDev().state());
+  paintDev(await devApi().state().catch(() => null));
 }
 
 function link(href, text) {
