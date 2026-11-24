@@ -27,6 +27,13 @@ programa sigue abriendo la página de Atresplayer.
 
 Pruebas: `python -m unittest discover -s tests -t .` y `node --test`.
 
+## Releases de este fork
+
+Las releases de este fork salen de la rama **`main` de tu repo** (`TheRepSter/tdt-local-browser-only`), no del
+proyecto original: cada release es un merge de `plugins-navegador` a `main` con una etiqueta
+`v<versión>-browser.<n>` (p. ej. `v1.5.0-browser.1`). Para traer una actualización del proyecto original antes de
+release: `scripts/sync-upstream.sh main` (fetch + merge de `upstream/main`, pruebas en verde y push).
+
 ## Licencia y origen
 
 Este fork es una modificación de **TDT local** (https://github.com/cibernicola/tdt-local), que es
