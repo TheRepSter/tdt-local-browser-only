@@ -14,6 +14,7 @@ from .feeds import FeedSyncer
 from .health import HealthChecker
 from .hooks import Hooks
 from .logos import LogoCache
+from .logbook import Logbook
 from . import safemode
 from .devplugins import DevStore
 from .net import Net
@@ -41,6 +42,7 @@ class App:
         self.net = Net(allow_private=config.allow_private)
         self.plugins = PluginStore(config, self.net)  # the plugins of the browser mode (docs/PARIDAD-NAVEGADOR.md)
         self.dev = DevStore(config)  # the development plugins of the browser mode (same doc, phase 4)
+        self.logbook = Logbook(config.data_dir / "browser" / "log.txt")  # the log of the browser mode (same doc, phase 6)
         # safe mode (safemode.py, the desktop app's safe-mode.js): --safe, TDT_SAFE_MODE=1, the settings' button, or two bad exits in a row
         self.crash_guard = safemode.CrashGuard(config.data_dir / "browser" / "run.json")
         self.safe_mode = safemode.decide(
@@ -66,6 +68,15 @@ class App:
         """Load the cache and start the refresh threads."""
         self.config.data_dir.mkdir(parents=True, exist_ok=True)
         self.crash_guard.start()  # this run is marked as «running»: a start that finds it without a clean exit counts as a bad one
+        self.logbook.add("servidor", "INFO",
+                         f"TDT local {__version__} · modo navegador · datos en {self.config.data_dir}"
+                         + ("" if self.config.loopback_only else " · AVISO: accesible desde la red local, sin autenticación")
+                         + (f" · modo seguro: {self.safe_mode['text']}" if self.safe_mode["safe"] else ""))
+        on = [p["id"] for p in self.plugins.plugins if self.plugins.is_on(p)]
+        self.logbook.add("plugins", "INFO", f"{len(self.plugins.plugins)} encontrados; activados: " + (", ".join(on) or "ninguno"))
+        for p in self.plugins.plugins:
+            if p["problems"]:
+                self.logbook.add("plugins", "WARN", p["id"] + " no se puede usar: " + "; ".join(p["problems"]))
         self.store.load()
         self.scte.load()
         self.control.announce()
@@ -100,10 +111,13 @@ class App:
         self.dev.set_safe(text)
         self.plugins.scan()
         self.dev.scan()
+        self.logbook.add("servidor", "WARN" if safe else "INFO",
+                         "modo seguro " + ("activado" if safe else "desactivado") + (f": {text}" if text else ""))
         return {"ok": True, "safe": bool(safe), "text": text, "list": self.plugins.snapshot()}
 
     def close(self) -> None:
         self.stop.set()
+        self.logbook.add("servidor", "INFO", "cierre limpio")
         self.control.close()
         self.transcriber.close()
         self.plugins.close()

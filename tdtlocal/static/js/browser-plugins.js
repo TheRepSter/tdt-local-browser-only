@@ -199,6 +199,32 @@ export const browserUi = {
 /** Reload the page (the desktop app reloads its window). */
 export const reloadPage = () => window.location.reload();
 
+/* ------------------------------------------------------------ the log (the tdtDesktop.logs shape): Ajustes ▸ Registro */
+
+export const browserLogs = {
+  // the server keeps the log in <datos>/browser/log.txt, already scrubbed; there is no folder to open in a browser
+  get: async () => {
+    const r = await requestJson('/api/logs').then((x) => x.data).catch(() => null);
+    if (!r || !Array.isArray(r.lines)) return { lines: [], folder: '' };
+    return { lines: r.lines, folder: r.file ? r.folder + '/' + r.file : r.folder };
+  },
+  // the desktop app asks where to save with a system dialog; a browser can only download the file
+  save: async () => {
+    const data = await browserLogs.get();
+    const mode = await api('/api/mode').then((r) => r.data).catch(() => null);
+    const head = 'TDT local ' + (mode && mode.version ? mode.version : '') + ' · modo navegador (' + navigator.userAgent + ')';
+    const text = [head, ''].concat(data.lines).join('\n') + '\n';
+    const a = el('a', '', '');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'tdt-local-registro.txt';
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    return { saved: a.download };
+  },
+};
+
 /* ------------------------------------------------------------ the development plugins tab (the tdtDesktop.dev shape) */
 
 export const browserDev = {

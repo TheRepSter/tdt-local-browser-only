@@ -12,11 +12,12 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 from typing import TYPE_CHECKING, Any
 
 from . import __version__
-from .control import ControlError, clean_command
+from .control import PLUGIN_ID, ControlError, clean_command
 from .plugins import FULL_RUN_POLICY, MAX_INSTALL_BYTES, PLUGIN_POLICY, frame_ancestors
 from .settings_routes import _from_this_machine
 
@@ -100,6 +101,10 @@ def handle_get(handler: "Handler", path: str) -> bool:
             "Content-Disposition": f'attachment; filename="{result["filename"]}"',
             "X-TDT-SHA256": result["sha256"],
         })
+    elif path == "/api/logs":
+        # the Registro tab of the settings (read route, like /api/settings): the lines are already scrubbed when written
+        browser_dir = app.config.data_dir / "browser"
+        handler._json(200, {"lines": app.logbook.lines(1500), "folder": str(browser_dir), "file": "log.txt"})
     elif path == "/api/dev/state":
         handler._json(200, app.dev.snapshot())
     elif path == "/api/dev/page":
@@ -174,27 +179,47 @@ def _post_json(handler: "Handler", path: str) -> bool:
         app.plugins.scan()
         handler._json(200, {"ok": True, "list": app.plugins.snapshot()})
     elif path == "/api/plugins/enable":
-        handler._json(200, app.plugins.enable(str(body.get("id") or ""), body.get("on") is True))
+        r = app.plugins.enable(str(body.get("id") or ""), body.get("on") is True)
+        app.logbook.add("plugins", "INFO", f"{r.get('id', '')}: " + ("activado" if body.get("on") is True else "desactivado")
+                        + ("" if r.get("ok") else f" · {r.get('detail', '')}"))
+        handler._json(200, r)
     elif path == "/api/plugins/approve":
-        handler._json(200, app.plugins.approve(str(body.get("id") or ""), body.get("signature")))
+        r = app.plugins.approve(str(body.get("id") or ""), body.get("signature"))
+        app.logbook.add("plugins", "INFO", f"{body.get('id')}: aprobado" + ("" if r.get("ok") else f" · {r.get('detail', '')}"))
+        handler._json(200, r)
     elif path == "/api/plugins/permission":
-        handler._json(200, app.plugins.set_permission(str(body.get("id") or ""), str(body.get("name") or ""), body.get("on") is True))
+        pid, name, on = str(body.get("id") or ""), str(body.get("name") or ""), body.get("on") is True
+        r = app.plugins.set_permission(pid, name, on)
+        app.logbook.add("plugins", "INFO", f"{pid}: permiso {name} " + ("concedido" if on else "quitado"))
+        handler._json(200, r)
     elif path == "/api/plugins/config":
         handler._json(200, app.plugins.set_config(str(body.get("id") or ""), body.get("values")))
     elif path == "/api/plugins/create":
         kind = str(body.get("kind") or "ui")
-        handler._json(200, app.plugins.create(body.get("name"), kind if kind in ("ui", "full", "theme") else "ui"))
+        r = app.plugins.create(body.get("name"), kind if kind in ("ui", "full", "theme") else "ui")
+        app.logbook.add("plugins", "INFO", f"creado {r.get('id', '')} ({r.get('kind', kind)})")
+        handler._json(200, r)
     elif path == "/api/plugins/uninstall":
-        handler._json(200, app.plugins.uninstall(str(body.get("id") or "")))
+        pid = str(body.get("id") or "")
+        r = app.plugins.uninstall(pid)
+        app.logbook.add("plugins", "INFO", f"{pid}: desinstalado" + ("" if r.get("ok") else f" · {r.get('detail', '')}"))
+        handler._json(200, r)
     elif path == "/api/plugins/install/commit":
-        handler._json(200, app.plugins.commit(body.get("token")))
+        r = app.plugins.commit(body.get("token"))
+        app.logbook.add("plugins", "INFO", f"instalado {r.get('id', '')}" + ("" if r.get("ok") else f" · {r.get('detail', r.get('error', ''))}"))
+        handler._json(200, r)
     elif path == "/api/plugins/call":
         args = body.get("args")
         handler._json(200, app.plugins.call(str(body.get("id") or ""), str(body.get("method") or ""), args if isinstance(args, list) else []))
     elif path == "/api/dev/mode":
-        handler._json(200, app.dev.set_mode(body.get("on") is True))
+        r = app.dev.set_mode(body.get("on") is True)
+        app.logbook.add("dev", "INFO", "modo desarrollador " + ("activado" if body.get("on") is True else "apagado"))
+        handler._json(200, r)
     elif path == "/api/dev/approve":
-        handler._json(200, app.dev.approve(str(body.get("id") or ""), body.get("on") is True))
+        pid, on = str(body.get("id") or ""), body.get("on") is True
+        r = app.dev.approve(pid, on)
+        app.logbook.add("dev", "INFO", f"{pid}: " + ("activado" if on else "desactivado"))
+        handler._json(200, r)
     elif path == "/api/dev/rescan":
         app.dev.scan()
         handler._json(200, {"ok": True, "view": app.dev.snapshot()})
@@ -202,6 +227,11 @@ def _post_json(handler: "Handler", path: str) -> bool:
         handler._json(200, app.set_safe_mode(body.get("safe") is True))
     elif path in ("/api/plugins/admin", "/api/dev/admin"):
         code, result = _admin_body(handler, body)
+        tag = "plugins" if path == "/api/plugins/admin" else "dev"
+        cmd = body.get("cmd") if isinstance(body.get("cmd"), dict) else {}
+        outcome = "confirmado" if body.get("confirm") is True else ("pendiente de aprobación" if result.get("needsConfirm") else "ejecutado")
+        app.logbook.add(tag, "INFO" if result.get("ok") or result.get("needsConfirm") else "WARN",
+                        f"admin {cmd.get('do', '')} {cmd.get('id', '')}: {outcome}")
         handler._json(code, result)
     else:
         return False
@@ -246,4 +276,40 @@ def handle_post(handler: "Handler", path: str) -> bool:
     if path == "/api/plugins/install/inspect":
         _post_install_inspect(handler)
         return True
+    if path == "/api/log":
+        _post_log(handler)
+        return True
     return _post_json(handler, path)
+
+
+LOG_SOURCE = re.compile(r"^[^\s:/\\\[\]]{1,31}$")  # a tag like «plugins», «servidor» or «página»; «plugin:<id>» is built below
+
+
+def _post_log(handler: "Handler") -> None:
+    """``POST /api/log``: a line from the page (or for a plugin, ``{source: "plugin", id}``) for the Registro tab.
+    Only from this machine, and always scrubbed and cut server-side: a full disk or a hostile page cannot do more
+    than fill the log, which rotates at 1 MB."""
+    if not _from_this_machine(handler):
+        handler._json(403, {"ok": False, "error": "solo se puede hacer desde el propio equipo"})
+        return
+    body = handler._body()
+    source = body.get("source")
+    if not isinstance(source, str) or not LOG_SOURCE.match(source):
+        handler._json(400, {"ok": False, "error": "«source» falta o no es válido"})
+        return
+    tag = source
+    if source == "plugin":
+        pid = str(body.get("id") or "")
+        if not PLUGIN_ID.match(pid):
+            handler._json(400, {"ok": False, "error": "«id» de plugin no válido"})
+            return
+        tag = "plugin:" + pid
+    level = str(body.get("level") or "INFO")
+    if level not in ("INFO", "WARN", "ERROR"):
+        level = "INFO"
+    text = body.get("text")
+    if not isinstance(text, str) or not text.strip():
+        handler._json(400, {"ok": False, "error": "«text» falta"})
+        return
+    handler.app.logbook.add(tag, level, text[:4000])
+    handler._json(200, {"ok": True})

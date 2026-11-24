@@ -878,6 +878,14 @@ const host = {
 
 for (let i = 0; i < TILES; i++) state.tiles.push(new Tile(i, host));
 tilesEl.replaceChildren(...state.tiles.map((t) => t.root));
+// the errors of the page go to the log (Ajustes ▸ Registro), as the app does with the errors of its window
+window.addEventListener('error', (e) => postJson('/api/log', {
+  source: 'página', level: 'ERROR',
+  text: String(e.message || e.type) + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : ''),
+}).catch(() => { /* the log is a courtesy */ }));
+window.addEventListener('unhandledrejection', (e) => postJson('/api/log', {
+  source: 'página', level: 'ERROR', text: 'promesa sin capturar: ' + String(e.reason),
+}).catch(() => { /* the log is a courtesy */ }));
 bindEvents();
 initAssistant({ setKind, play, multiWith, toMosaic });
 initDialogs({

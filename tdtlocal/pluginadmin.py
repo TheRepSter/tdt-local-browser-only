@@ -19,15 +19,9 @@ if TYPE_CHECKING:
 
 
 def _log_lines(data_dir: Path, tag: str, limit: int) -> list[str]:
-    """The lines of the browser-mode log that belong to this plugin (the log itself is phase 6; until then it may not exist)."""
-    lines: list[str] = []
-    try:
-        for line in (Path(data_dir) / "browser" / "log.jsonl").read_text(encoding="utf-8", errors="replace").splitlines():
-            if tag in line:
-                lines.append(line)
-    except OSError:
-        pass
-    return lines[-max(1, min(200, limit)):]
+    """The lines of the browser-mode log that belong to this plugin (``<data>/browser/log.txt``, logbook.py)."""
+    from .logbook import lines_with_tag  # local: keep the import cheap for the tests that import this module alone
+    return lines_with_tag(Path(data_dir) / "browser" / "log.txt", tag, max(1, min(200, limit)))
 
 
 def run_plugin_admin(store: "PluginStore", cmd: dict[str, Any], confirm: bool = False) -> dict[str, Any]:

@@ -10,7 +10,7 @@ import {
 } from './lib/plugins-panel.js';
 import { pluginHost } from './plugin-host.js';
 
-import { browserDev, browserPlugins, reloadPage, safeRestart } from './browser-plugins.js';
+import { browserDev, browserLogs, browserPlugins, reloadPage, safeRestart } from './browser-plugins.js';
 import { inspectorButton } from './inspector.js';
 import { themeControl } from './themes.js';
 import {
@@ -29,9 +29,10 @@ const desktop = () => (typeof window !== 'undefined' && window.tdtDesktop && win
 const pluginsApi = () => desktop() || browserPlugins; // the same calls: over IPC in the app, over HTTP in a browser
 const devApi = () => desktopDev() || browserDev;
 const desktopLogs = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.logs) || null;
+const logsApi = () => desktopLogs() || browserLogs; // the same calls: over IPC in the app, over HTTP in a browser
 const desktopDev = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.dev) || null;
 const tabsShown = () => [...TABS, { id: 'plugins', label: 'Plugins' }, { id: 'dev', label: 'Desarrollo' },
-  ...(desktopLogs() ? [{ id: 'logs', label: 'Registro' }] : [])];
+  { id: 'logs', label: 'Registro' }];
 
 const dlg = () => $('setDlg');
 const say = (text, bad = false) => {
@@ -470,8 +471,8 @@ function logsPanel() {
   bar.append(mode,
     button('Actualizar', loadLogs),
     button('Copiar', copyLogs),
-    button('Guardar en un archivo…', saveLogs),
-    button('Abrir la carpeta de registros', () => desktopLogs().openFolder()));
+    button('Guardar en un archivo…', saveLogs));
+  if (desktopLogs()) bar.append(button('Abrir la carpeta de registros', () => desktopLogs().openFolder())); // a browser cannot open folders of the OS
   const summary = el('p', 'dlg-hint');
   summary.id = 'logSummary';
   summary.setAttribute('role', 'status');
@@ -497,8 +498,7 @@ function paintLogs() {
 }
 
 async function loadLogs() {
-  if (!desktopLogs()) return;
-  logData = await desktopLogs().get();
+  logData = await logsApi().get();
   paintLogs();
 }
 
@@ -514,8 +514,10 @@ async function copyLogs() {
 }
 
 async function saveLogs() {
-  const res = await desktopLogs().save();
-  $('logMsg').textContent = res && res.saved ? 'Guardado en ' + res.saved : 'No se ha guardado nada.';
+  const res = await logsApi().save();
+  $('logMsg').textContent = res && res.saved
+    ? (desktopLogs() ? 'Guardado en ' + res.saved : 'Descargado como ' + res.saved)
+    : 'No se ha guardado nada.';
 }
 
 async function loadPlugins() {
