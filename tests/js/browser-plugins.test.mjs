@@ -47,6 +47,25 @@ test('a failed activation also answers with the list (no crash painting the resu
   assert.deepEqual(r.plugins, LIST.plugins);
 });
 
+test('a plugin needing approval asks for the review first (before, enablePlan(res, null) never said «ask» and the checkbox silently reverted)', async () => {
+  globalThis.window = { dispatchEvent() {} };
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    calls.push(u);
+    const data = u.startsWith('/api/plugins/enable') ? { ok: false, needsApproval: true, detail: 'necesita aprobación del usuario' }
+      : u.startsWith('/api/plugins/review') ? { error: 'no está' }
+      : LIST;
+    return { ok: true, status: 200, json: async () => data };
+  };
+  const { browserPlugins } = await import('../../tdtlocal/static/js/browser-plugins.js?needs-approval');
+  const r = await browserPlugins.setEnabled('saludo', true);
+  assert.ok(calls.some((u) => u.startsWith('/api/plugins/review?id=')), 'the review is fetched when the server asks for approval');
+  assert.equal(r.ok, false);
+  assert.ok(r.detail, 'a reason is surfaced, not swallowed');
+  assert.deepEqual(r.plugins, LIST.plugins);
+});
+
 test('rescan resolves with the list itself', async () => {
   globalThis.window = { dispatchEvent() {} };
   globalThis.fetch = mockFetch([

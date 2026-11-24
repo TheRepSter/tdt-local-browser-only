@@ -386,7 +386,9 @@ function paintPlugins(data) {
     box.checked = d.on;
     box.disabled = !d.usable;
     box.addEventListener('change', async () => {
-      paintPlugins(await pluginsApi().setEnabled(plugin.id, box.checked)); // a plugin with permissions asks first (native window in the app, in-page dialog in a browser)
+      const r = await pluginsApi().setEnabled(plugin.id, box.checked); // a plugin with permissions asks first (native window in the app, in-page dialog in a browser)
+      paintPlugins(r);
+      if (r && r.ok === false && r.detail) pluginNote(r.detail); // in a browser the answer carries why it did not turn on
       $('pluginApply').hidden = !d.needsReload;
     });
     label.append(box, el('strong', '', ' ' + d.title));

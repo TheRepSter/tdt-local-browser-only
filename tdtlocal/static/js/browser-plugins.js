@@ -80,10 +80,15 @@ async function withPlugins(r) {
 
 async function setEnabled(id, on) {
   const res = await postJson('/api/plugins/enable', { id, on }).then(jsonOf);
-  let plan = enablePlan(res, null);
-  if (plan.action === 'ask') {
+  if (res && res.ok) {
+    changed();
+    return withPlugins(res);
+  }
+  // enablePlan only says «ask» once it has the review: fetch it first when the server asks for approval,
+  // or the plugin would silently stay off (the checkbox reverted with no dialog at all).
+  if (res && res.needsApproval && on) {
     const rev = await requestJson(`/api/plugins/review?id=${encodeURIComponent(id)}`).then((r) => r.data).catch(() => null);
-    plan = enablePlan(res, rev);
+    const plan = enablePlan(res, rev);
     if (plan.action === 'ask') {
       const yes = await showReview({ ...rev, installs: 'Al aceptarlo se activa con exactamente lo que ves aquí.' }, 'activate');
       if (!yes) return withPlugins({ ok: false, detail: 'no se ha activado' });
@@ -93,10 +98,9 @@ async function setEnabled(id, on) {
       changed();
       return withPlugins(res2);
     }
+    return withPlugins({ ok: false, detail: plan.message });
   }
-  if (plan.action === 'error') return withPlugins({ ok: false, detail: plan.message });
-  changed();
-  return withPlugins(res);
+  return withPlugins(res || { ok: false, detail: 'no se pudo activar' });
 }
 
 async function inspectAndMaybeCommit(body, ctype, extraHeaders) {
