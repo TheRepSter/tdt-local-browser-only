@@ -1,0 +1,18 @@
+{
+  "name": "El mosaico",
+  "version": "1.0.0",
+  "description": "Pon hasta 4 canales a la vez en multivisión (con el audio rotando entre ellos cada pocos segundos) con un botón, y vuelve a un solo canal con otro. Elige los canales con el buscador y se recuerdan. Ejemplo de plugin que controla el reproductor y busca en la lista de canales.",
+  "author": "TDT local (ejemplo)",
+  "homepage": "https://github.com/cibernicola/tdt-local",
+  "tdt": {
+    "api": 1,
+    "entry": "index.html",
+    "label": "Mosaico",
+    "panel": { "width": 340, "height": 430 },
+    "permissions": ["player.read", "player.control", "channels.read", "storage"],
+    "settings": {
+      "rotar": { "type": "choice", "label": "Rotar el audio cada…", "options": ["10", "15", "20", "30", "45", "60"], "default": "20",
+                 "help": "Cada cuántos segundos pasa el sonido de una casilla a otra; sin rotación, elige una la lista de abajo" }
+    }
+  }
+}

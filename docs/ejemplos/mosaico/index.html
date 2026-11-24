@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>El mosaico</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; padding: 12px; font: 14px/1.4 system-ui, sans-serif; color: CanvasText; background: transparent; }
+    h1 { margin: 0 0 8px; font-size: 18px; }
+    .fila { display: flex; gap: 6px; margin-bottom: 8px; }
+    input[type="search"] { flex: 1; font: inherit; }
+    button { font: inherit; cursor: pointer; }
+    ul { list-style: none; margin: 0; padding: 0; overflow-y: auto; max-height: 200px; }
+    li { padding: 6px 4px; border-top: 1px solid color-mix(in srgb, CanvasText 15%, transparent); display: flex; justify-content: space-between; gap: 6px; }
+    .quita { background: none; border: none; font-size: 15px; }
+    #estado { font-size: 13px; opacity: 0.85; margin: 8px 0; }
+    .acciones { display: flex; gap: 6px; }
+    .vacio { opacity: 0.7; padding: 8px 4px; }
+  </style>
+</head>
+<body>
+  <h1>El mosaico</h1>
+  <div class="fila">
+    <input type="search" id="buscar" placeholder="Buscar un canal para el mosaico…" aria-label="Buscar canal para el mosaico">
+    <button id="add" type="button">Añadir</button>
+  </div>
+  <ul id="lista"></ul>
+  <div id="estado"></div>
+  <div class="acciones">
+    <button id="poner" type="button">Poner el mosaico</button>
+    <button id="salir" type="button">Volver a un solo canal</button>
+  </div>
+  <script src="/@tdt/sdk.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
