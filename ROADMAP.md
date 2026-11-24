@@ -67,8 +67,7 @@ bienvenidas como *issues*.
 ## Cuenta y preferencias
 - [ ] Descargar también el programa `whisper-server` (binarios de whisper.cpp) desde Ajustes.
 - [ ] Elegir el mensaje del sistema del asistente y exportar/importar los ajustes.
-- [ ] Favoritos y preferencias en el servidor (`data/prefs.json`): hoy están en `localStorage`, que va por
-  origen y se pierde al cambiar de puerto o usar `--lan`.
+- [x] Favoritos y preferencias en el servidor (`data/prefs.json`): **hecho en este fork** (modo navegador y app comparten la página): `GET/POST /api/prefs`, `localStorage` como caché de arranque con sync bidireccional (fase 10 de [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md)). Antes estaban en `localStorage`, que va por origen y se perdía al cambiar de puerto o usar `--lan`.
 - [ ] Reordenar favoritos y numeración propia (hoy el número es la posición en la vista filtrada).
 - [ ] PWA para tablet y móvil (`manifest.json` e icono).
 

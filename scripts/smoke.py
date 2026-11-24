@@ -33,6 +33,7 @@ WANTED = {
     "/u7d-lector.js": "tdt-u7d",
     "/api/settings": "{",
     "/api/channels": "channels",
+    "/api/prefs": '"prefs"',
 }
 
 

@@ -34,12 +34,13 @@ import { atresEmbed } from './lib/embeds.js';
 import { ytEmbed } from './lib/youtube.js';
 import { pluginSourceName } from './sources.js';
 import { isGuideOpen, syncGuide, toggleGuide } from './guide.js';
-import { store } from './store.js';
+import { initPrefs, store } from './store.js';
 import { TILES, channelEpgLine, cur, epgEntries, focusTile, nowTs, state } from './state.js';
 import { Tile } from './tile.js';
 
 const screenEl = $('screen');
 const tilesEl = $('tiles');
+initPrefs(); // sync favorites/preferences with the server (prefs.json); reloads once if this origin was behind
 const appEl = $('app');
 const list = $('list');
 const q = $('q');

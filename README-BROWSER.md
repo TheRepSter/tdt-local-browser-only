@@ -27,6 +27,8 @@ programa sigue abriendo la página de Atresplayer.
 
 Pruebas: `python -m unittest discover -s tests -t .` y `node --test`.
 
+El detalle de la paridad está en [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md) y los siguientes pasos del fork (ideas con su diseño, de ROADMAP.md y el resto de docs) en [docs/PENDIENTES-FORK.md](docs/PENDIENTES-FORK.md): token para `--lan`, recordatorios con Notification, banco hostil contra el servidor real, más ranuras de interfaz, reproductor propio por plugin…
+
 ## Releases de este fork
 
 Las releases de este fork salen de la rama **`main` de tu repo** (`TheRepSter/tdt-local-browser-only`), no del
