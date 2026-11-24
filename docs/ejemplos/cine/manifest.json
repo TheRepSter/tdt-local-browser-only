@@ -1,0 +1,20 @@
+{
+  "name": "Modo cine",
+  "version": "1.0.0",
+  "description": "Oscurece toda la pantalla salvo la imagen, fija el volumen que elijas y te dice qué estás viendo. Al salir (con la ✕ de la cabecera del panel) devuelve el volumen que tenías. Ejemplo de plugin que ocupa la pantalla del reproductor.",
+  "author": "TDT local (ejemplo)",
+  "homepage": "https://github.com/cibernicola/tdt-local",
+  "tdt": {
+    "api": 1,
+    "entry": "index.html",
+    "label": "Cine",
+    "panel": { "placement": "screen" },
+    "permissions": ["player.read", "player.control", "epg.read", "storage", "ui.toast"],
+    "settings": {
+      "volumen":    { "type": "number", "label": "Volumen fijo (0-100)", "min": 0, "max": 100, "default": 40,
+                      "help": "Al entrar en modo cine se fija a este volumen" },
+      "oscurecer":  { "type": "number", "label": "Oscuridad (0-90)", "min": 0, "max": 90, "default": 70,
+                      "help": "Porcentaje de negro sobre la imagen" }
+    }
+  }
+}
