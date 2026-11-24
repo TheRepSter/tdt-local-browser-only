@@ -2,6 +2,11 @@
 
 **Tune · Display · Tinker — local.**
 
+> **Este es el fork `tdt-local-browser-only`:** aquí el modo navegador (abrir `http://127.0.0.1:8788` en Chrome/Edge/Brave/Firefox)
+> da todo lo que da la aplicación de escritorio Electron. Lee [README-BROWSER.md](README-BROWSER.md) para usarlo y
+> [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md) para el inventario, el plan y las tres excepciones (alcance `main`,
+> diálogos nativos, bandeja/atajos). El proyecto original es [cibernicola/tdt-local](https://github.com/cibernicola/tdt-local).
+
 [![CI](../../actions/workflows/ci.yml/badge.svg)](../../actions/workflows/ci.yml)
 
 > [!WARNING]
@@ -54,7 +59,7 @@ comprobado en condiciones simuladas o con pocos casos reales. **📋 Pendiente**
 | **Reglas de automatización** («a las 21:00 pon La 1», «cuando empiece algo de fútbol, avísame»): botón *Reglas*, sin programar, y por MCP con confirmación ([docs/REGLAS.md](docs/REGLAS.md)) | 🧪 Probado poco · en la aplicación real en Windows: diálogo, MCP y una regla por canal que se cumple sola; las de hora y programa, con pruebas unitarias |
 | Cabeceras de petición editables en cualquier canal (también las de las listas públicas) y por MCP | 🧪 Probado poco · en la aplicación real en Windows; el comportamiento de las cabeceras con un origen de verdad lo comprueban las pruebas de Python |
 | U7D: lo emitido en los últimos 7 días por La 1, La 2, 24 Horas, Teledeporte y Clan (RTVE), del más reciente al más antiguo | 🧪 Probado poco · con la red real: la lista y la reproducción de un telediario; los programas con DRM se avisan y no se reproducen |
-| U7D de Atresmedia (Antena 3, laSexta, Neox, Nova, Mega y Atreseries), solo en la aplicación de escritorio y con el plugin `atresplayer-u7d` | 🧪 Probado poco · con la red real en Antena 3: la ventana lee la lista y la grabación se abre en su página; con el DNS de esta máquina (filtra anuncios) la página no reproduce, así que la reproducción no está comprobada |
+| U7D de Atresmedia (Antena 3, laSexta, Neox, Nova, Mega y Atreseries), solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md)) y con el plugin `atresplayer-u7d` | 🧪 Probado poco · con la red real en Antena 3: la ventana lee la lista y la grabación se abre en su página; con el DNS de esta máquina (filtra anuncios) la página no reproduce, así que la reproducción no está comprobada |
 | Favoritos, último canal, volumen y filtros (en el navegador) | ✅ Hecho |
 | Ajustes desde la interfaz, sin reiniciar | ✅ Hecho |
 | Modo navegador: el servidor sin consola y tu navegador, con el botón «Salir» (`--classic` en la construcción, o `python -m tdtlocal`) | ✅ Hecho |
@@ -64,11 +69,11 @@ comprobado en condiciones simuladas o con pocos casos reales. **📋 Pendiente**
 | Alertas por voz (palabras vigiladas en las cuatro casillas) | 🧪 Probado poco · misma limitación |
 | Acceso de IAs: una API con token para que una IA o un plugin vea qué estás viendo y, si lo eliges, ponga canales o cambie el volumen (apagado por defecto) | 🧪 Probado poco · comprobado con la aplicación real en Windows; ver [docs/PLUGINS.md](docs/PLUGINS.md) |
 | Servidor MCP (`tdt-local mcp` o `POST /mcp`): una IA lee qué ves, busca canales y, si lo permites, los pone y cambia el volumen; con el tercer nivel, escribe y depura plugins (con permisos, con todo el poder, temas y de desarrollo; cada cambio y cada activación los confirma el usuario con el código a la vista) | 🧪 Probado poco · en Windows con la aplicación real, con un cliente MCP independiente (el SDK oficial) y con **Claude Code**, por entrada y salida estándar y por HTTP (`scripts/plugin-lab/mcp-claude.mjs`: conecta, ve las 30 herramientas, lee, cambia el volumen y escribe y activa un tema); **no** con Claude Desktop ni con otros clientes; ver [docs/PLUGINS.md](docs/PLUGINS.md) |
-| Plugins con permisos: un panel propio sobre el reproductor, aislado, que declara qué pide (ver qué ves, poner canales, la guía, avisos, guardar datos, hablar con un servidor) y que tú apruebas al activarlo; se hacen, se empaquetan (`.tdtplugin`) y se instalan desde Ajustes ▸ Plugins; guía en [docs/HACER-PLUGINS.md](docs/HACER-PLUGINS.md) | 🧪 Probado poco · solo en la aplicación de escritorio, comprobado en Windows con plugins de ejemplo y uno hostil que intenta escapar de la caja; sin comprobar en macOS ni Linux. Se instalan también desde un enlace o un catálogo (con el SHA-256 fijado), con **firma de autor** (se anota la clave la primera vez y se avisa si cambia) y con **límites de memoria y procesador** por plugin |
-| Plugins de desarrollo (sin aislamiento, para quien desarrolla o una IA que edite archivos), con el modo desarrollador | 🧪 Probado poco · solo en la aplicación de escritorio, comprobado en Windows; ver [docs/PLUGINS.md](docs/PLUGINS.md) |
-| **Plugins con todo el poder**: corren dentro de la página, sin aislar, con los ganchos de la aplicación; se instalan como los demás, **sin el modo desarrollador**; al activarlos se te enseña su código y la aprobación va atada a una huella de todos sus archivos (una letra cambiada y se vuelve a preguntar) ([docs/HACKEABLE.md](docs/HACKEABLE.md)) | 🧪 Probado poco · solo en la aplicación de escritorio, comprobado en Windows (instalar, activar, cambiar el código y que se detenga, modo seguro); los avisos nativos los contesta la prueba, no se han visto en la aplicación empaquetada |
+| Plugins con permisos: un panel propio sobre el reproductor, aislado, que declara qué pide (ver qué ves, poner canales, la guía, avisos, guardar datos, hablar con un servidor) y que tú apruebas al activarlo; se hacen, se empaquetan (`.tdtplugin`) y se instalan desde Ajustes ▸ Plugins; guía en [docs/HACER-PLUGINS.md](docs/HACER-PLUGINS.md) | 🧪 Probado poco · solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md)), comprobado en Windows con plugins de ejemplo y uno hostil que intenta escapar de la caja; sin comprobar en macOS ni Linux. Se instalan también desde un enlace o un catálogo (con el SHA-256 fijado), con **firma de autor** (se anota la clave la primera vez y se avisa si cambia) y con **límites de memoria y procesador** por plugin |
+| Plugins de desarrollo (sin aislamiento, para quien desarrolla o una IA que edite archivos), con el modo desarrollador | 🧪 Probado poco · solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md)), comprobado en Windows; ver [docs/PLUGINS.md](docs/PLUGINS.md) |
+| **Plugins con todo el poder**: corren dentro de la página, sin aislar, con los ganchos de la aplicación; se instalan como los demás, **sin el modo desarrollador**; al activarlos se te enseña su código y la aprobación va atada a una huella de todos sus archivos (una letra cambiada y se vuelve a preguntar) ([docs/HACKEABLE.md](docs/HACKEABLE.md)) | 🧪 Probado poco · solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md)), comprobado en Windows (instalar, activar, cambiar el código y que se detenga, modo seguro); los avisos nativos los contesta la prueba, no se han visto en la aplicación empaquetada |
 | **Ganchos**: la aplicación deja mirar, cambiar o reemplazar lo que hace (acciones, filtros con prioridad y registros) en la página y en el servidor | 🧪 Probado poco · la página, en la aplicación real; la parte de Python está probada con pruebas, pero ningún plugin la carga todavía |
-| **Temas completos**: una hoja de estilo (con sus imágenes y fuentes dentro) que cambia cualquier regla, sin código; uno a la vez ([docs/TEMAS.md](docs/TEMAS.md)) | 🧪 Probado poco · solo en la aplicación de escritorio, comprobado en Windows |
+| **Temas completos**: una hoja de estilo (con sus imágenes y fuentes dentro) que cambia cualquier regla, sin código; uno a la vez ([docs/TEMAS.md](docs/TEMAS.md)) | 🧪 Probado poco · solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md)), comprobado en Windows |
 | **Capas sobre la imagen** de cada casilla, que dejan pasar los clics | 🧪 Probado poco · en la aplicación real en Windows, con una capa de prueba |
 | Modo seguro (arranca sin ningún plugin tras dos cierres malos seguidos, con `--safe` o desde Ajustes), inspector en vivo de eventos, llamadas y reglas | 🧪 Probado poco · en la aplicación real en Windows, con arranques y cierres de verdad |
 | Plugins con ajustes que genera la aplicación, servicios que duermen hasta su evento o su hora, fuentes de reproducción declarativas (por ejemplo Twitch), proveedores de canales y de guía, y reglas y atajos que trae un plugin | 🧪 Probado poco · en la aplicación real en Windows; Twitch, con un directo real |
@@ -178,7 +183,7 @@ conexión para descargar las listas; después se usa la última copia guardada e
   siempre, sin hacerse pasar por su web. Los programas con DRM (películas y series con licencia, unos 3 de cada 10)
   no se reproducen y la casilla lo dice. La lista se guarda diez minutos y las miniaturas solo se piden para las filas
   que se ven.
-  **Atresmedia (solo en la aplicación de escritorio):** Antena 3, laSexta, Neox, Nova, Mega y Atreseries salen también
+  **Atresmedia (solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md))):** Antena 3, laSexta, Neox, Nova, Mega y Atreseries salen también
   en U7D. Atresplayer publica lo emitido en una página pública por canal («Emitido en TV», `/antena3/u7d/`…) que solo
   un navegador puede leer. Al entrar en uno de esos canales, la aplicación abre una ventana «Explorar Atresplayer» con
   esa página, el plugin `tools/atresplayer-u7d` lee los programas que muestra (título, día, hora y miniatura) y la
@@ -193,7 +198,7 @@ conexión para descargar las listas; después se usa la última copia guardada e
   plugin en Ajustes ▸ Plugins. No imita la web de la cadena ni llama a su API: lee lo
   que la página muestra, y lo que sale es la selección de la propia web (unas decenas de programas por canal, no toda
   la parrilla). El aviso de cookies de esa ventana es tuyo. Mediaset no está: su reproductor no se puede incrustar.
-- **Registro** (Ajustes ▸ Registro, solo en la aplicación de escritorio): lo que ha pasado en la aplicación (arranque,
+- **Registro** (Ajustes ▸ Registro, solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md))): lo que ha pasado en la aplicación (arranque,
   plugins, ventana de exploración, servidor, errores de la página y fallos de red de los reproductores de dentro, una
   vez por dirección y sin parámetros) para leerlo, filtrarlo, copiarlo o guardarlo en un archivo y enviarlo si algo
   falla. También queda en `<datos de la app>/logs/tdt-local.log` (se rota a 1 MB). Se ocultan claves, tokens y
@@ -208,7 +213,7 @@ conexión para descargar las listas; después se usa la última copia guardada e
   origen redirige a otro**, y su valor no vuelve a la pantalla (se ve que está puesta y se puede sustituir o quitar). No se pueden
   poner las del transporte (`Host`, `Content-Length`, `Range`…). Las de un canal de las listas públicas se guardan aparte
   (`data/headers.json`) y sobreviven a una actualización de la lista. Por MCP: `tdt_headers_get` (nivel «leer») y
-  `tdt_headers_set` (nivel «plugins»; cada cambio lo confirma el usuario en una ventana del sistema, solo en la aplicación de escritorio). Para no copiar el enlace a mano hay un
+  `tdt_headers_set` (nivel «plugins»; cada cambio lo confirma el usuario en una ventana del sistema, solo en la aplicación de escritorio (en este fork, también en el navegador: [docs/PARIDAD-NAVEGADOR.md](docs/PARIDAD-NAVEGADOR.md))). Para no copiar el enlace a mano hay un
   [fragmento para tu navegador](#sacar-el-enlace-de-un-directo-desde-tu-navegador).
 - **Atresmedia con un clic:** «Añadir canal» tiene un botón que añade Antena 3, La Sexta, Neox, Nova, Mega y Atreseries
   con el reproductor oficial incrustable de Atresplayer (`https://www.atresplayer.com/embed/live/<canal>/`), igual que los

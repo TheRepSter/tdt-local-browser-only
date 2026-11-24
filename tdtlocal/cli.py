@@ -58,8 +58,10 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"puerto ({DEFAULT_PORT})")
     ap.add_argument("--host", default="127.0.0.1", help="dirección donde escuchar (127.0.0.1)")
     ap.add_argument("--lan", action="store_true", help="escuchar en toda la red local (0.0.0.0), sin autenticación")
-    ap.add_argument("--open", action="store_true", help="abrir el navegador")
+    ap.add_argument("--open", action="store_true",
+                    help="abrir el navegador por defecto con la página (la ventana propia se consigue instalando la app: «Instalar como aplicación»)")
     ap.add_argument("--quit-button", action="store_true", help="mostrar el botón «Salir» que cierra el servidor")
+    ap.add_argument("--safe", action="store_true", help="modo seguro: ningún plugin corre (se saca desde Ajustes ▸ Plugins)")
     ap.add_argument("--verbose", action="store_true", help="registrar cada petición HTTP")
     ap.add_argument(
         "--data-dir",
@@ -166,6 +168,8 @@ def run(config: Config, open_browser: bool = False) -> None:
     if not config.loopback_only:
         log.warning("AVISO: accesible desde la red local; sin autenticación")
     if open_browser:
+        # the default browser, plain tab: the app's own window in browser mode comes from installing the PWA
+        # («Instalar como aplicación»), not from a --app flag (docs/PARIDAD-NAVEGADOR.md, phase 8)
         threading.Timer(0.6, webbrowser.open, args=(url,)).start()
     try:
         httpd.serve_forever()

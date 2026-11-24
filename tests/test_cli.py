@@ -77,6 +77,16 @@ class CliTests(unittest.TestCase):
         with self.assertRaises(SystemExit), mock.patch("sys.stderr", new=io.StringIO()):
             build_parser().parse_args(["--nope"])
 
+    def test_open_uses_the_default_browser_plain_tab(self):
+        """--open opens the default browser, never a --app= window: the app's own window in browser mode comes
+        from installing the PWA («Instalar como aplicación»), not from the command line (phase 8, decisión final)."""
+        import tdtlocal.cli as cli
+        self.assertFalse(hasattr(cli, "open_in_app_mode"), "no queda modo app en el --open")
+        self.assertFalse(hasattr(cli, "find_app_browser"))
+        help_text = build_parser().format_help()
+        self.assertIn("--open", help_text)
+        self.assertNotIn("modo aplicación", help_text)
+
 
 if __name__ == "__main__":
     unittest.main()

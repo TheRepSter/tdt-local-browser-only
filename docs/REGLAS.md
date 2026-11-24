@@ -80,6 +80,7 @@ hacer y todo lo que se cuenta, con sus argumentos: es la lista única que compar
 
 - `tdt_rules_get` (nivel «leer»): las reglas, cada una con su frase.
 - `tdt_rules_set` (nivel «controlar»): **sustituye todas** (lee antes y devuelve también las que no cambian). Se comprueban antes de
-  molestarte y **te las enseña una ventana del sistema, con lo que cambia, antes de guardar**. Solo en la aplicación de escritorio.
+  molestarte y **te las enseña antes de guardar**: ventana del sistema en la app de escritorio, diálogo de la página en el
+  navegador (ver [PARIDAD-NAVEGADOR.md](PARIDAD-NAVEGADOR.md)).
 
 Ejemplo de petición: «avísame cuando empiece algo de fútbol en cualquier canal y baja el volumen a las 23:00 entre semana».

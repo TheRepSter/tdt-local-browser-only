@@ -357,6 +357,12 @@ a.btn { display: inline-block; text-decoration: none; color: inherit; }
 
 /* Settings dialog */
 .dlg-wide { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow-y: auto; }
+
+/* Approval dialogs of the browser mode (activating or installing a plugin; one at a time) */
+.approve-dlg .approve-head { font-weight: 600; color: var(--ink); }
+.approve-dlg .approve-sha { font-family: ui-monospace, monospace; font-size: 11px; word-break: break-all; }
+.approve-dlg pre.approve-code { background: var(--chassis); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; max-height: 40vh; overflow: auto; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+.approve-dlg .btn.danger { background: var(--bad); color: #fff; border-color: var(--bad); }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 12px; flex-wrap: wrap; }
 .tabs button { background: none; border: 1px solid transparent; border-bottom: 0; border-radius: 4px 4px 0 0; padding: 7px 12px; color: var(--muted); font: inherit; cursor: pointer; }
 .tabs button[aria-selected="true"] { background: var(--chassis); color: var(--ink); border-color: var(--line); margin-bottom: -1px; }

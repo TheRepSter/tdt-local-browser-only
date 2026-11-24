@@ -18,6 +18,7 @@ import { initScte, openScte, syncScte } from './scte.js';
 import { audioFx, initSound } from './sound.js';
 import { $, el, fillLogo } from './dom.js';
 import { matchingWords, ALERT_COOLDOWN_MS } from './lib/alerts.js';
+import { initAppInstall } from './lib/app-install.js';
 import { nearestSecs } from './lib/commands.js';
 import { epgDetail, epgOf, progress } from './lib/epg.js';
 import { categoriesOf, filterChannels, isListed } from './lib/filters.js';
@@ -26,6 +27,7 @@ import { norm } from './lib/text.js';
 import {
   ATRES_PLUGIN, atresChannels, atresItems, atresProgramme, newestFirst, programmeChannel, whenLabel,
 } from './lib/u7d.js';
+import { browserAtres, cachedItems, initAtresBrowser } from './atres-browser.js';
 import { fillAssignments, nextRotation } from './lib/mosaic.js';
 import { canPlayFormat } from './lib/plan.js';
 import { atresEmbed } from './lib/embeds.js';
@@ -173,7 +175,9 @@ function renderProgrammes() {
     list.replaceChildren(head, li);
   } else if (!items) {
     list.replaceChildren(head, note(c.provider === 'atres'
-      ? 'Leyendo la página de Atresplayer en una ventana aparte. Se cierra sola al terminar; si sale su aviso de cookies, es tuyo.'
+      ? (window.tdtDesktop && window.tdtDesktop.atres
+        ? 'Leyendo la página de Atresplayer en una ventana aparte. Se cierra sola al terminar; si sale su aviso de cookies, es tuyo.'
+        : 'Se ha abierto la página de Atresplayer en una ventana nueva: pulsa allí el marcador «Leer la lista en TDT local» para traer los programas.')
       : 'Cargando…'));
   } else if (!items.length) {
     list.replaceChildren(head, note('Sin programas disponibles.'));
@@ -190,10 +194,12 @@ function renderProgrammes() {
   updateDeck();
 }
 
-// What Atresplayer's own page «Emitido en TV (U7D)» of a channel shows, read by the plugin in the app's explorer window
+// What Atresplayer's own page «Emitido en TV (U7D)» of a channel shows: in the app, the plugin reads it in the app's
+// explorer window; in a browser, a popup with the same page plus the bookmarklet (atres-browser.js, phase 7)
 async function readAtres(mine) {
+  const atresApi = (window.tdtDesktop && window.tdtDesktop.atres) || browserAtres;
   let res;
-  try { res = await window.tdtDesktop.atres.list(mine.c.slug); } catch { res = { error: 'sin respuesta' }; }
+  try { res = await atresApi.list(mine.c.slug); } catch { res = { error: 'sin respuesta' }; }
   if (state.u7d !== mine) return; // the user went elsewhere meanwhile
   if (res && res.items) {
     mine.items = newestFirst(atresItems(res.items));
@@ -650,8 +656,8 @@ async function load(force) {
   if (d.health.running) pollCheck();
   if (sig === state.signature && !force) return;
   state.signature = sig;
-  // Atresmedia's catch-up can only be read by the desktop app (see readAtres): its channels join the U7D list there
-  const atres = window.tdtDesktop && window.tdtDesktop.atres ? atresChannels(d.channels) : [];
+  // Atresmedia's catch-up joins the U7D list in both modes (readAtres: the app's explorer window, or a popup + bookmarklet in a browser)
+  const atres = atresChannels(d.channels);
   state.channels = d.channels.concat(atres);
   state.byId = new Map(state.channels.map((c) => [c.id, c]));
   for (const t of state.tiles) if (t.c) t.c = state.byId.get(t.c.id) || t.c;
@@ -878,6 +884,18 @@ const host = {
 
 for (let i = 0; i < TILES; i++) state.tiles.push(new Tile(i, host));
 tilesEl.replaceChildren(...state.tiles.map((t) => t.root));
+// the errors of the page go to the log (Ajustes ▸ Registro), as the app does with the errors of its window
+const sysNotify = initAppInstall(footMsg); // «Instalar como aplicación» + avisos del sistema: solo en navegador (fase 8)
+window.addEventListener('error', (e) => {
+  const text = String(e.message || e.type) + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : '');
+  postJson('/api/log', { source: 'página', level: 'ERROR', text }).catch(() => { /* the log is a courtesy */ });
+  sysNotify('Error en la página de TDT local', text);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const text = 'promesa sin capturar: ' + String(e.reason);
+  postJson('/api/log', { source: 'página', level: 'ERROR', text }).catch(() => { /* the log is a courtesy */ });
+  sysNotify('Error en la página de TDT local', text);
+});
 bindEvents();
 initAssistant({ setKind, play, multiWith, toMosaic });
 initDialogs({
@@ -903,6 +921,7 @@ initScte({
   notify(name, text, count) {
     osd('📢', name + ' · ' + text);
     footMsg('Marca de anuncios en ' + name + ': ' + text + (count > 1 ? ' (y ' + (count - 1) + ' más)' : '') + '.');
+    sysNotify('Marca de anuncios en ' + name, text + (count > 1 ? ' (y ' + (count - 1) + ' más)' : ''));
   },
 });
 initSound({ apply: applyAudio });
@@ -916,6 +935,18 @@ window.addEventListener('tdt-guide-changed', () => loadEpg()); // a plugin gave 
 const pluginHost = initPluginHost({ actions: { setKind, play, multiWith, setVolume: controlVolume } });
 initControl({ setKind, play, multiWith, setVolume: controlVolume }, pluginHost);
 initRules({ actions: { setKind, play, multiWith, setVolume: controlVolume }, footMsg });
+initAtresBrowser(); // U7D of Atresmedia in a browser: the lector's messages and the `#u7d=…` fragment (phase 7)
+window.addEventListener('tdt-atres-cached', (e) => { // a list arrived while its channel was open: show it
+  const mine = state.u7d;
+  if (mine && mine.c.provider === 'atres' && mine.c.slug === (e.detail && e.detail.slug)) {
+    const items = cachedItems(mine.c.slug);
+    if (items) {
+      mine.items = newestFirst(atresItems(items));
+      postJson('/api/u7d/covers', { urls: mine.items.map((i) => i.image).filter(Boolean) }).catch(() => { /* no covers */ });
+    }
+    renderList();
+  }
+});
 applyLayout();
 syncMultiUi();
 syncKind();

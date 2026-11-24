@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, plugins-navegador]  # the fork's branch: the browser-only mode runs the same suites
   pull_request:
 
 permissions:

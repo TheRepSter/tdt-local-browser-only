@@ -115,8 +115,9 @@ el origen de la aplicación, sin sus cookies ni su almacenamiento) y solo habla 
 - **Plugins de datos** (por ejemplo U7D): registran un proveedor con funciones `channels()`, `programmes(canal)` y
   `play(programa)`; devuelven direcciones HLS, que la aplicación reproduce con su proxy actual, que ya valida los hosts.
   Atresplayer saldría del núcleo y sería el primero de estos.
-- **Solo JavaScript y solo en la aplicación de escritorio** en la primera versión. El modo navegador queda sin plugins
-  (hoy tampoco los tiene).
+- **Solo JavaScript.** En este fork (`tdt-local-browser-only`) los plugins funcionan igual en el navegador que en la
+  aplicación de escritorio (servidor propio, iframes aislados, mismas aprobaciones): ver
+  [PARIDAD-NAVEGADOR.md](PARIDAD-NAVEGADOR.md). Solo el alcance `main` (Node) sigue siendo exclusivo de la app.
 
 ### Lo que esto no resuelve
 
@@ -345,8 +346,8 @@ plugins normales no existe todavía (ver [más abajo](#después-el-servidor-mcp-
 | `tdt_commands` | leer | La **lista única** de órdenes (poner canal, volumen, silencio, multivisión, aviso) y de eventos (otro canal, otro volumen, otra lista, un programa que empieza), con sus argumentos y el permiso que necesita un plugin para oírlos |
 | `tdt_plugin_calls` | leer | Las últimas llamadas de los plugins a la aplicación (`id` y `limit` opcionales): qué plugin, qué método, cómo acabó (`ok` o el código de error) y cuánto tardó; **sin argumentos ni respuestas**. Para depurar un plugin |
 | `tdt_events` | leer | Lo último que ha pasado en la ventana (`limit`, `name`), el más reciente primero; lo que hizo una regla viene marcado con `cause: rule` |
-| `tdt_rules_set` | controlar | Sustituye todas las reglas. Se comprueban antes de molestar y **una ventana del sistema se las enseña al usuario**, con lo que cambia; solo en la aplicación de escritorio |
-| `tdt_headers_set` | plugins | Pone, cambia o quita cabeceras de un canal (`null` quita). **Pide confirmación al usuario** en una ventana del sistema, con cada cambio a la vista; solo en la aplicación de escritorio |
+| `tdt_rules_set` | controlar | Sustituye todas las reglas. Se comprueban antes de molestar y **se las enseña al usuario**, con lo que cambia: ventana del sistema en la app de escritorio, diálogo de la página en el navegador (ver [PARIDAD-NAVEGADOR.md](PARIDAD-NAVEGADOR.md)) |
+| `tdt_headers_set` | plugins | Pone, cambia o quita cabeceras de un canal (`null` quita). **Pide confirmación al usuario** con cada cambio a la vista: ventana del sistema en la app, diálogo de la página en el navegador (ver [PARIDAD-NAVEGADOR.md](PARIDAD-NAVEGADOR.md)) |
 | `tdt_plugins` | leer | **Los plugins con permisos**: si están activados, su estado (en marcha, arrancando, no responde, parado), qué permisos piden y cuáles ha quitado el usuario, dónde se muestran, lo que han hecho (llamadas, errores, reinicios, red, datos guardados) y sus problemas |
 | `tdt_plugin_logs` | leer | Las últimas líneas del Registro de un plugin con permisos |
 | `tdt_plugin_api` | leer | La especificación exacta de su API (`tdtlocal/static/plugin-api.json`), entera o un método |

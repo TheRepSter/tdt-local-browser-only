@@ -78,6 +78,13 @@ def host_of(url: str) -> str:
         return ""
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Follows no redirect: the caller reads the 3xx and decides (plugin downloads check each hop)."""
+
+    def redirect_request(self, req: Any, fp: IO[bytes], code: int, msg: str, headers: Message, newurl: str) -> None:
+        return None
+
+
 class _RedirectGuard(urllib.request.HTTPRedirectHandler):
     """Re-validates every redirect target and adds it to the allowed hosts."""
 
@@ -213,12 +220,15 @@ class Net:
         require_allowed: bool = True,
         timeout: float = 20,
         strip_on_redirect: Iterable[str] = (),
+        follow_redirects: bool = True,
     ) -> Any:
         """Open ``url`` after validating it. The caller must close the response. The headers in ``strip_on_redirect``
-        (the ones that may be credentials) are not sent on to another host if the origin redirects there."""
+        (the ones that may be credentials) are not sent on to another host if the origin redirects there. With
+        ``follow_redirects=False`` the 3xx answers come back as :class:`urllib.error.HTTPError`, so the caller can
+        check each hop itself."""
         url = url.replace(" ", "%20")
         self.check_url(url, require_allowed)
-        handlers: list[Any] = [_RedirectGuard(self, strip_on_redirect)]
+        handlers: list[Any] = [_RedirectGuard(self, strip_on_redirect) if follow_redirects else _NoRedirect()]
         if urllib.request.getproxies().get(urllib.parse.urlsplit(url).scheme):
             handlers.append(urllib.request.HTTPSHandler(context=self._ctx))  # a system proxy makes the connection
         else:

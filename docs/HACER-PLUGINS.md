@@ -1,7 +1,8 @@
 # Hacer plugins para TDT local
 
-Esta guía es para quien quiera **hacer un plugin y compartirlo**, sin haber tocado nunca el código de TDT local. Los plugins
-solo existen en la aplicación de escritorio (la versión de navegador no los carga). Si buscas el diseño y las decisiones de
+Esta guía es para quien quiera **hacer un plugin y compartirlo**, sin haber tocado nunca el código de TDT local. En este
+fork (`tdt-local-browser-only`) los plugins también corren en el navegador, con las mismas reglas de aprobación (ver
+[PARIDAD-NAVEGADOR.md](PARIDAD-NAVEGADOR.md)). Si buscas el diseño y las decisiones de
 fondo, está en [PLUGINS.md](PLUGINS.md); aquí solo está lo que hace falta para hacer uno.
 
 Ejemplos que funcionan, para copiar: [`ejemplos/ahora/`](ejemplos/ahora/) (qué estás viendo y qué dan ahora, con botones de
