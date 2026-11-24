@@ -31,8 +31,18 @@ Pruebas: `python -m unittest discover -s tests -t .` y `node --test`.
 
 Las releases de este fork salen de la rama **`main` de tu repo** (`TheRepSter/tdt-local-browser-only`), no del
 proyecto original: cada release es un merge de `plugins-navegador` a `main` con una etiqueta
-`v<versión>-browser.<n>` (p. ej. `v1.5.0-browser.1`). Para traer una actualización del proyecto original antes de
-release: `scripts/sync-upstream.sh main` (fetch + merge de `upstream/main`, pruebas en verde y push).
+`v<versión>-browser.<n>` (p. ej. `v1.5.0-browser.1`). A diferencia de la app de escritorio **no hay build**:
+este modo solo necesita Python (biblioteca estándar) y un navegador, así que la release es un zip de fuente:
+
+```bash
+scripts/pack-release.sh v1.5.0-browser.1   # -> dist/tdt-local-v1.5.0-browser.1.zip
+# para usarlo: descomprime, entra en la carpeta y «python -m tdtlocal --open»
+```
+
+Para traer una actualización del proyecto original antes de release: `scripts/sync-upstream.sh main`
+(fetch + merge de `upstream/main`, pruebas en verde y push). El CI corre las dos suites **y** un smoke test
+(`scripts/smoke.py`: arranca el servidor de verdad y pide la página, el manifest, el service worker, el lector,
+las API y la CSP) en cada push a `main` o `plugins-navegador`.
 
 ## Licencia y origen
 

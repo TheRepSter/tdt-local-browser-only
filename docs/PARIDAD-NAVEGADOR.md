@@ -127,6 +127,25 @@ y un commit pequeño, antes de pasar a la siguiente.
 
 Excepción adicional de la fase 7: si el CSP de Atresplayer impidiera ejecutar el bookmarklet en su página, se pega el código en la consola (F12 → «allow pasting»); no se intenta leer su lista de ninguna otra forma.
 
+## Auditoría de seguridad del modo navegador (hecha al cerrar, fase 9)
+
+Revisión punto por punto de los requisitos innegociables sobre el código nuevo de las fases 1–8 (`plugins.py`, `plugins_routes.py`, `pluginsign.py`, `pluginwriter.py`, `pluginadmin.py`, `devplugins.py`, `safemode.py`, `logbook.py`, `net.py`, `server.py` y el JS de `static/js/`). Cada fila dice dónde se impone y qué prueba lo vigila:
+
+| Requisito | Dónde se impone | Prueba |
+|---|---|---|
+| CSP de la página sin scripts ni estilos inline | `server.py` `CSP`: `script-src 'self'`, `style-src 'self'`, `frame-ancestors 'none'`, `form-action 'none'`; el código full/dev se sirve como módulo (`/plugin-full/…`, `/plugin-dev/…`), nunca con `eval`; los temas van por constructable stylesheets (`setStyle`) | `tests/test_plugins_full.py`, `tests/js/core-plugins.test.mjs`; grep de `unsafe-inline` en la CSP: ninguno |
+| Permisos declarados, enseñados y comprobados **en cada llamada** | `PluginStore.call()` vuelve a comprobar el permiso concedido por método (`storage.*`, `config.*`, `net.fetch` → `plugin_fetch`); `/api/plugins/call` está en `CHANGE_PATHS` (solo desde el propio equipo) y el host del iframe revalida por postMessage | `tests/test_plugins.py` (llamadas sin permiso → `E_PERMISSION`), `tests/js/plugin-host.test.mjs` |
+| Proxy y red de plugins: solo http(s), nunca IPs locales ni de metadatos | `net.py` resuelve **todas** las direcciones de cada host y rechaza las no globales salvo `allow_private` (anti DNS-rebinding); `check_link` (https, puerto 443, sin credenciales, host público) y `network_allows` se reevalúan en **cada salto** de redirección (≤ 3, `follow_redirects=False`) | `tests/test_plugins.py` (red de plugin), tests de `net.py` |
+| Solo 127.0.0.1 por defecto; `--lan` sin autenticación y con aviso | `config.loopback_only` (host por defecto 127.0.0.1); `server.py _guard()` rechaza otros Host cuando es loopback; `cli.py` registra el AVISO al arrancar con `--lan`; las rutas de cambio exigen `_from_this_machine` | `tests/test_plugins.py`, `tests/test_cli.py` |
+| Token del bus en tiempo constante, regenerable, nunca a disposición de un plugin | `control.py`: `hmac.compare_digest` (línea del `Bearer`); el token vive solo en el bus y en Ajustes ▸ Acceso de IAs; ningún método de `/api/plugins/call` lo expone | `tests/test_mcp.py` / tests del bus |
+| Ninguna activación ni escritura sin decisión explícita del usuario | `enable()` exige aprobación atada a la huella para ui/full; instalar es inspect → diálogo → commit (nunca auto); las órdenes admin responden `needsConfirm` hasta `confirm: true` desde la página; en modo seguro toda mutación se rechaza (`_safe_refusal`) | `tests/test_plugins.py`, `tests/test_plugin_admin.py`, `tests/test_dev_safemode.py` |
+| Nada de auto-actualizar plugins desde internet | No hay ningún hilo que descargue código de plugins: la instalación es siempre un paquete local o un enlace **explícito** con SHA-256 (y firma de autor opcional) que el usuario inspecciona y confirma | `tests/test_plugins.py` (instalación), `tests/test_pluginsign.py` |
+| Los iframes de plugin, aislados y solo para 127.0.0.1 | `sandbox="allow-scripts"` (origen opaco), servidos de `/plugin/<id>/…` con la CSP propia del plugin y `frame-ancestors` solo loopback; `_plugin_file_guard` rechaza cross-site y otros Host | `tests/js/plugin-host.test.mjs` (el hostil no escapa), `tests/test_plugins.py` |
+| El registro nunca guarda claves ni tokens | `logbook.py` aplica el mismo `scrub` que `desktop/lib/logbook.js` **al escribir** (cabeceras de credenciales, bearer, `key=value`), y `POST /api/log` lo vuelve a aplicar y recorta | `tests/test_logbook.py` |
+| U7D de Atresmedia: no imitar a la web ni llamar a su API | El lector solo lee el DOM de la página pública y cita su origen; la página solo acepta mensajes de `https://www.atresplayer.com` exactamente y limpia lo recibido con las mismas reglas que la app; antes de guardar, diálogo | `tests/js/atres-browser.test.mjs` |
+
+Conclusión: los nueve puntos pasan sobre el código de este fork, con pruebas automatizadas de cada uno. Fecha de la revisión: la del commit de cierre de la fase 9.
+
 ## Requisitos de seguridad (innegociables, heredados del proyecto)
 
 - CSP de la página sin scripts ni estilos inline (hoy: `server.py` manda `script-src 'self'`, `style-src 'self'`; los temas van por constructable stylesheets, no por `<style>`).
