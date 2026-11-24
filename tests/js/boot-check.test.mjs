@@ -1,10 +1,11 @@
-// The boot watchdog: if app.js (or one of its static imports, e.g. /plugins/ads/page.js blocked by an ad
+// The boot watchdog: if app.js (or one of its module imports, e.g. a local plugin page blocked by an ad
 // blocker) never evaluates, the page is dead but silent. index.html carries a hidden #bootFail banner and
 // js/boot-check.js (a separate module graph) reveals it when window.__tdtBooted is missing. No inline code
-// anywhere: the page CSP is script-src 'self' / style-src 'self'.
+// anywhere: the page CSP is script-src 'self' / style-src 'self'. The bundled plugin folder must not be named
+// «ads»: the usual ad-block filter lists match the /ads/ path and would cut it in the browser.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -29,4 +30,18 @@ test('app.js sets the boot flag and the watchdog looks for it without eval', () 
 
 test('the banner is styled by its own external sheet', () => {
   assert.match(read('tdtlocal/static/boot-check.css'), /#bootFail/);
+});
+
+test('the bundled plugins load with a dynamic import (an ad blocker must not be able to kill the boot)', () => {
+  const core = read('tdtlocal/static/js/core-plugins.js');
+  assert.doesNotMatch(core, /^import\s+\w+\s+from\s+'\.\.\/plugins\//m, 'no static import of a bundled plugin page');
+  assert.match(core, /await import\('\.\.\/plugins\//);
+  assert.match(core, /export const includedErrors/);
+  assert.match(read('tdtlocal/static/js/app.js'), /includedErrors/);
+});
+
+test('no bundled plugin folder is named «ads» (the /ads/ path is what ad-block filter lists match)', () => {
+  const bundled = readdirSync(join(root, 'tdtlocal/static/plugins'));
+  assert.ok(!bundled.includes('ads'), `static/plugins must not contain an «ads» folder: ${bundled}`);
+  assert.ok(bundled.includes('adbreak'));
 });

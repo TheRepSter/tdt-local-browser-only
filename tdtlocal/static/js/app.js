@@ -4,7 +4,7 @@ import { api, postJson } from './api.js';
 import { initAssistant, isAssistantOpen, toggleAssist } from './assistant.js';
 import { initDialogs, removeOwn } from './dialogs.js';
 import { initHeaders } from './headers.js';
-import { loadIncluded, startPluginHost } from './core-plugins.js';
+import { loadIncluded, startPluginHost, includedErrors } from './core-plugins.js';
 import { initEvents } from './events.js';
 import { hooks } from './hooks.js';
 import { initRules } from './rules.js';
@@ -906,6 +906,11 @@ initDialogs({
 });
 initHeaders({ load, play, footMsg });
 loadIncluded(); // the plugins that come with the application (the reaction to an ad break among them), before anything uses their hooks
+for (const [id, err] of Object.entries(includedErrors)) { // p. ej. un bloqueador de anuncios cortó /plugins/<carpeta>/page.js
+  const text = `El plugin incluido «${id}» no cargó (${err}): probablemente un bloqueador del navegador cortó su ruta local. Pon 127.0.0.1 en su lista blanca; mientras tanto la app arranca sin él.`;
+  postJson('/api/log', { source: 'página', level: 'ERROR', text }).catch(() => {});
+  footMsg(text);
+}
 startPluginHost(); // and, in the desktop app, the plugins without isolation the preload has for this page (they get the same hooks)
 initAds({
   focusTile,

@@ -1,11 +1,22 @@
 // The plugins that come with the application. They are loaded by the same loader as any other plugin with all the power, and use the same hooks:
 // the application does by default what they do, so a plugin that wants to do it differently can change or replace it. Each one is in
-// tdtlocal/static/plugins/<id>/ with its plugin.json.
+// tdtlocal/static/plugins/<folder>/ with its plugin.json (the folder of «ads» is «adbreak»: browser ad blockers cut local
+// URLs like /plugins/ads/ by name, and the folder name is the URL).
 import { trusted } from './hooks.js';
 import { setStyle } from './styles.js';
-import ads from '../plugins/ads/page.js';
 
-export const INCLUDED = [{ id: 'ads', setup: ads }];
+// The bundled page is imported dynamically on purpose: if a browser ad blocker still cuts its local URL, a static
+// import would take the whole application down with it (the page loads but no module runs: empty list, dead clicks).
+// If it cannot load, the app boots anyway and includedErrors says which plugin is missing and why (app.js shows it).
+let ads = null;
+export const includedErrors = {};
+try {
+  ads = (await import('../plugins/adbreak/page.js')).default;
+} catch (error) {
+  includedErrors.ads = String((error && error.message) || error);
+}
+
+export const INCLUDED = ads ? [{ id: 'ads', setup: ads }] : [];
 
 const devSeen = new Map(); // dev plugin id -> fingerprint ya importado (the hot-reload poller keeps it between looks)
 
