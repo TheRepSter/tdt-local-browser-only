@@ -12,8 +12,11 @@ volumen), [`ejemplos/tiempo/`](ejemplos/tiempo/) (la temperatura de una ciudad, 
 fuente propia y pantalla a todo el reproductor; es el más grande y el que mejor enseña cómo se estructura un plugin de verdad).
 Y tres más recientes: [`ejemplos/agenda/`](ejemplos/agenda/) (qué ver hoy en tus canales y recordatorios de programas: guía,
 reproductor, almacenamiento y ajustes del manifest), [`ejemplos/apagado/`](ejemplos/apagado/) (silencio al acabar el programa
-o a los X minutos: estado del reproductor, guía y temporizador) y [`ejemplos/cine/`](ejemplos/cine/) (modo cine: pantalla
-oscurecida sobre la imagen, volumen fijo y vuelta al volumen anterior al salir).
+o a los X minutos: estado del reproductor, guía y temporizador), [`ejemplos/cine/`](ejemplos/cine/) (modo cine: pantalla
+oscurecida sobre la imagen, volumen fijo y vuelta al volumen anterior al salir), [`ejemplos/diario/`](ejemplos/diario/)
+(el historial de lo visto: escucha `channel.changed`, guarda horas y duraciones en su almacenamiento, saca minutos por canal
+y exporta todo a JSON) y [`ejemplos/mosaico/`](ejemplos/mosaico/) (multivisión de hasta 4 canales que eliges con el buscador,
+con el audio rotando cada X segundos: `player.multi` y `channels.search`).
 
 ## 1. Qué clase de plugin quieres
 

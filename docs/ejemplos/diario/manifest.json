@@ -1,0 +1,18 @@
+{
+  "name": "Diario de tele",
+  "version": "1.0.0",
+  "description": "Apunta solo qué canales has visto, a qué hora y cuánto tiempo: tu historial de zapping con minutos por canal, lo de hoy y exportar todo a un archivo JSON. Ejemplo de plugin que escucha eventos del reproductor y guarda en su almacenamiento.",
+  "author": "TDT local (ejemplo)",
+  "homepage": "https://github.com/cibernicola/tdt-local",
+  "tdt": {
+    "api": 1,
+    "entry": "index.html",
+    "label": "Diario",
+    "panel": { "width": 360, "height": 470 },
+    "permissions": ["player.read", "storage", "ui.toast"],
+    "settings": {
+      "dias": { "type": "number", "label": "Guardar los últimos X días", "min": 1, "max": 30, "default": 7,
+                "help": "Las entradas más viejas se borran solas al arrancar" }
+    }
+  }
+}

@@ -39,7 +39,9 @@ class ExamplesTests(unittest.TestCase):
     def test_new_examples_are_ui_plugins_with_the_permissions_they_use(self) -> None:
         for name, perms in (("agenda", {"channels.read", "epg.read", "player.read", "player.control", "storage", "ui.toast"}),
                             ("apagado", {"player.read", "player.control", "epg.read", "storage", "ui.toast"}),
-                            ("cine", {"player.read", "player.control", "epg.read", "storage", "ui.toast"})):
+                            ("cine", {"player.read", "player.control", "epg.read", "storage", "ui.toast"}),
+                            ("diario", {"player.read", "storage", "ui.toast"}),
+                            ("mosaico", {"player.read", "player.control", "channels.read", "storage"})):
             data = json.loads((EXAMPLES / name / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(data["tdt"]["api"], 1, name)
             self.assertEqual(set(data["tdt"]["permissions"]), perms, name)
