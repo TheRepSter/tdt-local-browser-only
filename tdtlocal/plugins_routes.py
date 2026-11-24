@@ -75,6 +75,13 @@ def handle_get(handler: "Handler", path: str) -> bool:
         handler._json(200, {"plugins": app.plugins.ui_plugins()})
     elif path == "/api/plugins/full":
         handler._json(200, {"plugins": app.plugins.full_handover()})
+    elif path == "/api/plugins/review":
+        if not _from_this_machine(handler):
+            handler._json(403, {"error": "solo se puede hacer desde el propio equipo"})
+            return True
+        pid = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query).get("id", [""])[0][:40]
+        result = app.plugins.review_of(pid)
+        handler._json(200 if "error" not in result else 400, result)
     elif path == "/api/plugins/catalog":
         if not _from_this_machine(handler):
             handler._json(403, {"error": "solo se puede hacer desde el propio equipo"})

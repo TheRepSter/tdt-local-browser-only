@@ -1,0 +1,185 @@
+// The browser mode's half of what the desktop app does over IPC (desktop/preload.cjs): the plugin administration of the
+// settings tab and the bridge the plugin host uses (list, call, log, onChange). Every call goes to the server's HTTP API
+// (tdtlocal/plugins_routes.py), which checks again who asks and what was approved. The questions the desktop app asks in
+// native windows are asked here in a dialog of the page, one at a time, with the honest text (lib/approve.js).
+import { api, requestJson, postJson } from './api.js';
+
+import { el } from './dom.js';
+
+import { createQueue, enablePlan, planReview } from './lib/approve.js';
+
+const changed = () => window.dispatchEvent(new Event('tdt-plugins-changed'));
+
+const jsonOf = (res) => res.json().catch(() => ({}));
+
+/* ------------------------------------------------------------ the in-page approval dialog (one at a time) */
+
+const ask = createQueue();
+
+function showReview(review, kind) {
+  return ask(() => new Promise((resolve) => {
+    const plan = planReview(review, kind);
+    const dlg = el('dialog', 'dlg dlg-wide approve-dlg');
+    dlg.setAttribute('aria-labelledby', 'approveTitle');
+    const title = el('h3', '', plan.title);
+    title.id = 'approveTitle';
+    dlg.append(title);
+    for (const l of plan.lines) dlg.append(el('p', l.cls || 'dlg-hint', l.text));
+    if (plan.code) {
+      const pre = el('pre', 'approve-code');
+      pre.textContent = plan.code;
+      dlg.append(pre);
+    }
+    const actions = el('div', 'dlg-actions');
+    const no = el('button', 'btn', 'Cancelar');
+    no.type = 'button';
+    const yes = el('button', 'btn primary', plan.approveLabel);
+    yes.type = 'button';
+    if (plan.danger) yes.classList.add('danger');
+    const done = (ok) => { dlg.close(); dlg.remove(); resolve(ok); };
+    no.addEventListener('click', () => done(false));
+    yes.addEventListener('click', () => done(true));
+    dlg.addEventListener('cancel', () => done(false));
+    actions.append(no, yes);
+    dlg.append(actions);
+    document.body.append(dlg);
+    dlg.showModal();
+    yes.focus();
+  }));
+}
+
+/* ------------------------------------------------------------ the settings tab's plugin administration (the tdtDesktop.plugins shape) */
+
+async function list() {
+  const r = await api('/api/plugins');
+  return r.data;
+}
+
+async function setEnabled(id, on) {
+  const res = await postJson('/api/plugins/enable', { id, on }).then(jsonOf);
+  let plan = enablePlan(res, null);
+  if (plan.action === 'ask') {
+    const rev = await requestJson(`/api/plugins/review?id=${encodeURIComponent(id)}`).then((r) => r.data).catch(() => null);
+    plan = enablePlan(res, rev);
+    if (plan.action === 'ask') {
+      const yes = await showReview({ ...rev, installs: 'Al aceptarlo se activa con exactamente lo que ves aquí.' }, 'activate');
+      if (!yes) return { ok: false, detail: 'no se ha activado', list: await list() };
+      const ap = await postJson('/api/plugins/approve', { id, signature: rev.signature }).then(jsonOf);
+      if (!ap.ok) return { ...ap, list: await list() };
+      const res2 = await postJson('/api/plugins/enable', { id, on: true }).then(jsonOf);
+      changed();
+      return res2.list ? res2 : { ...res2, list: await list() };
+    }
+  }
+  if (plan.action === 'error') return { ok: false, detail: plan.message, list: await list() };
+  changed();
+  return res.list ? res : { ...res, list: await list() };
+}
+
+async function inspectAndMaybeCommit(body, ctype, extraHeaders) {
+  const res = await fetch('/api/plugins/install/inspect', {
+    method: 'POST',
+    headers: { 'Content-Type': ctype, ...(extraHeaders || {}) },
+    body,
+  });
+  const review = await res.json().catch(() => ({}));
+  if (!res.ok || review.error) return { error: review.error || `el servidor contestó ${res.status}` };
+  const yes = await showReview(review, 'install');
+  if (!yes) return { error: 'No se instaló: se canceló.' };
+  const done = await postJson('/api/plugins/install/commit', { token: review.token }).then(jsonOf);
+  changed();
+  if (!done.list) done.list = await list();
+  return done;
+}
+
+export const browserPlugins = {
+  list,
+  setEnabled,
+  rescan: async () => {
+    const r = await postJson('/api/plugins/rescan', {}).then(jsonOf);
+    changed();
+    return r.list || (await list());
+  },
+  openFolder: () => null, // a browser cannot open a folder of the file system
+  create: async (name, kind) => {
+    const r = await postJson('/api/plugins/create', { name, kind }).then(jsonOf);
+    changed();
+    return r;
+  },
+  install: () => new Promise((resolve) => {
+    const input = el('input');
+    input.type = 'file';
+    input.accept = '.tdtplugin,application/zip';
+    input.addEventListener('change', async () => {
+      const file = input.files && input.files[0];
+      if (!file) { resolve({ error: 'No se eligió ningún archivo.' }); return; }
+      const buffer = await file.arrayBuffer();
+      resolve(await inspectAndMaybeCommit(buffer, 'application/tdtplugin'));
+    });
+    input.click();
+  }),
+  installLink: (url, sha, signature) => inspectAndMaybeCommit(JSON.stringify({ url, sha256: sha || undefined, signature }), 'application/json'),
+  catalog: async (url) => {
+    const r = await requestJson(`/api/plugins/catalog?url=${encodeURIComponent(url)}`).catch(() => ({ data: null }));
+    return r.data || { error: 'No se pudo leer el catálogo.' };
+  },
+  setPermission: async (id, name, on) => {
+    const r = await postJson('/api/plugins/permission', { id, name, on }).then(jsonOf);
+    changed();
+    return r.list || (await list());
+  },
+  setConfig: async (id, changes) => {
+    const r = await postJson('/api/plugins/config', { id, values: changes }).then(jsonOf);
+    if (r.ok) window.dispatchEvent(new CustomEvent('tdt-plugin-config', { detail: { id, values: r.values } }));
+    return r;
+  },
+  pack: async (id) => {
+    const res = await fetch(`/api/plugins/pack?id=${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!res.ok) return { error: (await res.json().catch(() => ({}))).error || 'no se pudo empaquetar' };
+    const blob = await res.blob();
+    const name = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || `${id}.tdtplugin`;
+    const a = el('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    return { saved: name, sha256: res.headers.get('X-TDT-SHA256') || '' };
+  },
+  admin: () => Promise.resolve({ error: 'las preguntas de una IA sobre plugins van por el bus de control (fase 5)' }),
+};
+
+/* ------------------------------------------------------------ the plugin host's bridge (the tdtDesktop.ui shape) */
+
+export const browserUi = {
+  list: async () => {
+    const r = await api('/api/plugins/ui');
+    return (r.data && r.data.plugins) || [];
+  },
+  call: (id, method, args) => postJson('/api/plugins/call', { id, method, args: Array.isArray(args) ? args : [] }).then(jsonOf),
+  log: (id, level, text) => { postJson('/api/log', { source: 'plugin', id, level, text }).catch(() => { /* the log is a courtesy */ }); },
+  onChange(callback) {
+    let last = '';
+    let busy = false;
+    const check = async () => {
+      if (busy) return;
+      busy = true;
+      try {
+        const plugins = await browserUi.list();
+        const s = JSON.stringify(plugins);
+        if (last && s !== last) callback(false);
+        last = s;
+      } catch { /* next time */ }
+      busy = false;
+    };
+    const timer = setInterval(check, 4000); // in the desktop app the change arrives pushed over IPC; here it is polled
+    window.addEventListener('tdt-plugins-changed', check);
+    window.addEventListener('focus', check);
+    return () => { clearInterval(timer); };
+  },
+  onConfig(callback) {
+    window.addEventListener('tdt-plugin-config', (e) => callback(String(e.detail.id), e.detail.values));
+  },
+};
+
+/** Reload the page (the desktop app reloads its window). */
+export const reloadPage = () => window.location.reload();

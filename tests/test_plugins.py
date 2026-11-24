@@ -694,5 +694,46 @@ class PluginRouteTests(ServerCase):
         self.assertEqual(len(mine["hash"]), 64)
 
 
+class ReviewTests(AppCase):
+    def test_review_of_gives_the_signature_asks_and_preview(self) -> None:
+        store = self.app.plugins
+        write_ui_plugin(store.user_dir)
+        write_full_plugin(store.user_dir)
+        store.scan()
+        r = store.review_of("de-prueba")
+        self.assertNotIn("error", r)
+        self.assertEqual(r["signature"], plugins.signature(store.find("de-prueba")))
+        self.assertIn("guardar sus propios datos", r["asks"])
+        self.assertFalse(r["full"])
+        f = store.review_of("full-de-prueba")
+        self.assertNotIn("error", f)
+        self.assertIn("ad.started", f["preview"])
+        self.assertEqual(f["signature"], plugins.full_signature(store.find("full-de-prueba")))
+        self.assertEqual(len(f["sha256"]), 64)
+        self.assertTrue(f["full"] and not f["theme"])
+        self.assertIn("TODO el poder", f["power"])
+        self.assertIn("error", store.review_of("no-existe"))
+        folder = store.user_dir / "de-script"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "inyecta.js").write_text("console.log(1)", encoding="utf-8")
+        (folder / "manifest.json").write_text(json.dumps({"name": "script", "content_scripts": [{"matches": ["https://example.com/*"], "js": ["inyecta.js"]}]}), encoding="utf-8")
+        store.scan()
+        self.assertIn("error", store.review_of("de-script"), "un plugin de script no se aprueba por aquí")
+
+
+class ReviewRouteTests(ServerCase):
+    def test_review_route(self) -> None:
+        write_ui_plugin(self.app.plugins.user_dir, "con-review")
+        self.app.plugins.scan()
+        status, r = self.get_json("/api/plugins/review?id=con-review")
+        self.assertEqual(status, 200)
+        self.assertEqual(r["id"], "con-review")
+        self.assertTrue(r["signature"])
+        self.assertIn("ver qué estás viendo", r["asks"])
+        status, r = self.get_json("/api/plugins/review?id=nadie")
+        self.assertEqual(status, 400)
+        self.assertIn("error", r)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,6 +9,8 @@ import {
   DEV_POINTER, ONLINE_INTRO, PLUGINS_INTRO, describeCatalogEntry, describePlugin, describeRuntime, permissionRows, settingHint, settingValue, summarize,
 } from './lib/plugins-panel.js';
 import { pluginHost } from './plugin-host.js';
+
+import { browserPlugins, reloadPage } from './browser-plugins.js';
 import { inspectorButton } from './inspector.js';
 import { themeControl } from './themes.js';
 import {
@@ -22,14 +24,13 @@ let hooks = null;
 let pollTimer = null;
 let removeKey = null; // the "remove saved key" checkbox
 
-// only the desktop app has window.tdtDesktop; in a browser the settings have no «Plugins» tab
+// window.tdtDesktop only exists in the desktop app; in a browser the plugins are administered over the server's HTTP API
 const desktop = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.plugins) || null;
+const pluginsApi = () => desktop() || browserPlugins; // the same calls: over IPC in the app, over HTTP in a browser
 const desktopLogs = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.logs) || null;
 const desktopDev = () => (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.dev) || null;
-const tabsShown = () => (desktop()
-  ? [...TABS, { id: 'plugins', label: 'Plugins' }, ...(desktopLogs() ? [{ id: 'logs', label: 'Registro' }] : []),
-    ...(desktopDev() ? [{ id: 'dev', label: 'Desarrollo' }] : [])]
-  : TABS);
+const tabsShown = () => [...TABS, { id: 'plugins', label: 'Plugins' }, ...(desktopLogs() ? [{ id: 'logs', label: 'Registro' }] : []),
+  ...(desktopDev() ? [{ id: 'dev', label: 'Desarrollo' }] : [])];
 
 const dlg = () => $('setDlg');
 const say = (text, bad = false) => {
@@ -195,7 +196,7 @@ function pluginsPanel() {
   apply.hidden = true;
   const reload = el('button', 'btn', 'Recargar ahora');
   reload.type = 'button';
-  reload.addEventListener('click', () => window.tdtDesktop.reload());
+  reload.addEventListener('click', () => (window.tdtDesktop ? window.tdtDesktop.reload() : reloadPage()));
   apply.append('Los cambios se aplican al recargar la ventana. ', reload);
   const actions = el('div', 'plugin-actions');
   const open = el('button', 'btn', 'Abrir la carpeta de plugins');
@@ -203,16 +204,17 @@ function pluginsPanel() {
   open.addEventListener('click', () => desktop().openFolder());
   const rescan = el('button', 'btn', 'Buscar de nuevo');
   rescan.type = 'button';
-  rescan.addEventListener('click', async () => paintPlugins(await desktop().rescan()));
+  rescan.addEventListener('click', async () => paintPlugins(await pluginsApi().rescan()));
   const install = el('button', 'btn', 'Instalar desde un archivo…');
   install.type = 'button';
   install.title = 'Un archivo .tdtplugin que te han pasado: se te enseña qué pide antes de instalarlo';
   install.addEventListener('click', async () => {
-    const r = await desktop().install();
+    const r = await pluginsApi().install();
     if (r && r.list) paintPlugins(r.list);
     pluginNote(r && r.error ? 'No se instaló: ' + r.error : r && r.id ? 'Instalado «' + r.id + '». Actívalo en la lista cuando quieras.' : '');
   });
-  actions.append(open, rescan, install);
+  if (desktop()) actions.append(open); // un navegador no puede abrir una carpeta del sistema de archivos
+  actions.append(rescan, install);
   const make = el('div', 'plugin-actions');
   const name = el('input');
   name.type = 'text';
@@ -226,7 +228,7 @@ function pluginsPanel() {
     button.type = 'button';
     button.title = title;
     button.addEventListener('click', async () => {
-      const r = await desktop().create(name.value.trim() || fallback, kind);
+      const r = await pluginsApi().create(name.value.trim() || fallback, kind);
       if (r && r.list) paintPlugins(r.list);
       pluginNote(r && r.id ? 'Creado «' + r.id + '» en ' + r.folder + '. ' + after : 'No se pudo crear.');
       name.value = '';
@@ -254,7 +256,7 @@ function pluginsPanel() {
   get.type = 'button';
   const installFrom = async (url, expected, signature) => {
     pluginNote('Descargando…');
-    const r = await desktop().installLink(url, expected, signature);
+    const r = await pluginsApi().installLink(url, expected, signature);
     if (r && r.list) paintPlugins(r.list);
     pluginNote(r && r.error ? 'No se instaló: ' + r.error : r && r.id ? 'Instalado «' + r.id + '». Actívalo en la lista cuando quieras.' : '');
   };
@@ -273,7 +275,7 @@ function pluginsPanel() {
     try { localStorage.setItem('tdt:catalogUrl', catalogUrl.value.trim()); } catch { /* no storage */ }
     entries.replaceChildren();
     pluginNote('Leyendo el catálogo…');
-    const r = await desktop().catalog(catalogUrl.value.trim());
+    const r = await pluginsApi().catalog(catalogUrl.value.trim());
     if (!r || r.error) { pluginNote(r && r.error ? r.error : 'No se pudo leer el catálogo.'); return; }
     pluginNote(`${r.entries.length} plugins en el catálogo de ${r.source}` + (r.problems.length ? ` (${r.problems.length} entradas con problemas: ${r.problems[0]})` : '') + '.');
     for (const entry of r.entries) {
@@ -299,7 +301,7 @@ function pluginsPanel() {
   // the state of each running plugin changes by itself (a frame that stops answering): look again every few seconds, only at those lines
   const timer = setInterval(async () => {
     if (!box.isConnected) { clearInterval(timer); return; }
-    const data = await desktop().list().catch(() => null);
+    const data = await pluginsApi().list().catch(() => null);
     if (data) paintRuntime(data);
   }, 3000);
   return box;
@@ -329,7 +331,7 @@ function settingsForm(plugin) {
   error.hidden = true;
   const save = async (field, input, raw) => {
     const typed = settingValue(field, raw);
-    const res = typed.ok ? await desktop().setConfig(plugin.id, { [field.name]: typed.value }) : typed;
+    const res = typed.ok ? await pluginsApi().setConfig(plugin.id, { [field.name]: typed.value }) : typed;
     error.hidden = !!res.ok;
     if (!res.ok) { error.textContent = res.error || 'No se pudo guardar.'; input.value = field.value; }
   };
@@ -378,7 +380,7 @@ function paintPlugins(data) {
     box.checked = d.on;
     box.disabled = !d.usable;
     box.addEventListener('change', async () => {
-      paintPlugins(await desktop().setEnabled(plugin.id, box.checked)); // a plugin with permissions asks first, in a native window
+      paintPlugins(await pluginsApi().setEnabled(plugin.id, box.checked)); // a plugin with permissions asks first (native window in the app, in-page dialog in a browser)
       $('pluginApply').hidden = !d.needsReload;
     });
     label.append(box, el('strong', '', ' ' + d.title));
@@ -399,7 +401,7 @@ function paintPlugins(data) {
           check.type = 'checkbox';
           check.checked = row.granted;
           check.setAttribute('aria-label', row.text);
-          check.addEventListener('change', async () => paintPlugins(await desktop().setPermission(plugin.id, row.name, check.checked)));
+          check.addEventListener('change', async () => paintPlugins(await pluginsApi().setPermission(plugin.id, row.name, check.checked)));
           chk.append(check, ' ' + row.text + ' ', el('small', 'plugin-risk', '(' + row.riskText + ')'));
           li.append(chk);
           asked.append(li);
@@ -424,7 +426,7 @@ function paintPlugins(data) {
       pack.type = 'button';
       pack.title = 'Crea un archivo .tdtplugin con este plugin';
       pack.addEventListener('click', async () => {
-        const r = await desktop().pack(plugin.id);
+        const r = await pluginsApi().pack(plugin.id);
         if (r && r.saved) pluginNote('Guardado en ' + r.saved + '. SHA-256: ' + r.sha256 + ' (publícala junto al archivo para que quien lo instale pueda comprobarlo).');
         else if (r && r.error) pluginNote('No se pudo empaquetar: ' + r.error);
       });
@@ -512,7 +514,7 @@ async function saveLogs() {
 }
 
 async function loadPlugins() {
-  if (desktop()) paintPlugins(await desktop().list());
+  paintPlugins(await pluginsApi().list().catch(() => null));
 }
 
 /* ------------------------------------------------------------ access of AIs (control bus) */

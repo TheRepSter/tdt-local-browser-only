@@ -1572,6 +1572,39 @@ class PluginStore:
             self._write_approved()
             return {"ok": True, "detail": "aprobado", "list": self.snapshot()}
 
+    def review_of(self, plugin_id: str) -> dict[str, Any]:
+        """What the page shows before the user approves a plugin that is already on disk: its signature (so the page can
+        send it back on approve), what it asks for, and for a full plugin a preview of its code and its fingerprint."""
+        with self.lock:
+            p = self.find(plugin_id)
+            if not p or p["kind"] not in ("ui", "full"):
+                return {"error": "no hay ningún plugin con permisos o con todo el poder con ese id"}
+            if p["problems"]:
+                return {"error": "el plugin tiene problemas: " + "; ".join(p["problems"])}
+            full = p["kind"] == "full"
+            theme = full and "css" in p.get("scopes", []) and "page" not in p.get("scopes", [])
+            asks = "\n".join(f"  • {describe_permission(x)}" for x in p.get("permissions", [])) or "  • ninguno"
+            preview = ""
+            if full:
+                src = p.get("files", {}).get("page") or p.get("files", {}).get("css")
+                if src:
+                    text = Path(src).read_text(encoding="utf-8", errors="replace")
+                    preview = text[:1200] + (f"\n… ({len(text) - 1200} caracteres más)" if len(text) > 1200 else "")
+            power = (
+                "Es un tema: una hoja de estilo que cambia el aspecto de TDT local y no ejecuta código."
+                if theme else
+                "Es un plugin con TODO el poder: corre DENTRO de la página de TDT local, sin aislar y sin permisos que lo limiten."
+            ) if full else ""
+            return {
+                "id": p["id"], "name": p["name"], "version": p["version"], "author": p.get("author", ""),
+                "description": p.get("description", ""), "kind": p["kind"], "full": full, "theme": theme, "power": power,
+                "asks": asks, "preview": preview,
+                "signature": full_signature(p) if full else signature(p),
+                "hash": p.get("hash", ""), "sha256": fingerprint(Path(p["dir"])) if full else "",
+                "needsApproval": needs_reapproval(p, self.approved), "enabled": self.is_on(p),
+                "installs": "Activarlo es lo que falta: al aceptarlo se enciende con exactamente lo que aquí se ve.",
+            }
+
     def set_permission(self, plugin_id: str, name: str, on: bool) -> dict[str, Any]:
         with self.lock:
             p = self.find(plugin_id)

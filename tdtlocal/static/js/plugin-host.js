@@ -1,5 +1,5 @@
 // The page's half of the plugins with permissions of the desktop app (docs/PLUGINS.md, docs/PLUGINS-ARQUITECTURA.md). Each running
-// plugin lives in a frame with `sandbox="allow-scripts"` and no origin of its own, served by the app from tdt-plugin://<id>/ under a
+// plugin lives in a frame with `sandbox="allow-scripts"` and no origin of its own, served from tdt-plugin://<id>/ in the desktop app or from /plugin/<id>/ in a browser, under a
 // policy that forbids it any request. The only way out of the frame is postMessage to this page, which answers with the methods its
 // permissions allow (lib/plugin-host.js, from the specification plugin-api.json). The frame is told apart by the window the message
 // comes from, never by what the message says.
@@ -8,6 +8,8 @@
 // call, asks every frame «are you there?» every few seconds and says when one is not, counts what each plugin does, and does not keep
 // a screen that is closed: its frame is destroyed (they cost about 100 MB each) and made again when it is opened.
 import { api as getJson, postJson } from './api.js';
+
+import { browserPlugins, browserUi } from './browser-plugins.js';
 import { $, el } from './dom.js';
 import {
   BEAT_MS, HEALTH_TEXT, MAX_PENDING, createCallLog, START_MS, PluginError, clampSize, createLimiter, dispatch, healthOf, isIdle, newStats, record, sleeps, stateKey,
@@ -24,7 +26,7 @@ import { store } from './store.js';
 const EVENT_MS = 1000;
 let current = null;
 
-/** The host of the plugins of this page, for the settings (how the frames are doing), or null if this is not the desktop app. */
+/** The host of the plugins of this page, for the settings (how the frames are doing). */
 export const pluginHost = () => current;
 
 /**
@@ -32,8 +34,8 @@ export const pluginHost = () => current;
  * @returns {{status: () => object[], reload: (id: string) => boolean} | null} what the settings and the MCP ask about the plugins
  */
 export function initPluginHost({ actions }) {
-  const api = typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.ui;
-  if (!api) return null; // only the desktop app has them
+  // in the desktop app the bridge is the preload's IPC; in a normal browser it is the server's HTTP API (browser-plugins.js)
+  const api = (typeof window !== 'undefined' && window.tdtDesktop && window.tdtDesktop.ui) || browserUi;
 
   const specReady = fetch('/plugin-api.json').then((r) => r.json());
   const dock = el('div', 'plugin-dock');
@@ -209,7 +211,7 @@ export function initPluginHost({ actions }) {
     note(m.plugin.id, 'INFO', 'se vuelve a cargar');
   }
 
-  const disable = (id) => window.tdtDesktop.plugins.setEnabled(id, false);
+  const disable = (id) => (window.tdtDesktop ? window.tdtDesktop.plugins.setEnabled(id, false) : browserPlugins.setEnabled(id, false));
 
   /** Open the screen of a plugin (one at a time) or close it. A closed screen has no frame at all. */
   function toggleScreen(id, force) {
