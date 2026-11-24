@@ -10,6 +10,14 @@ python -m tdtlocal --open        # abre tu navegador por defecto con la página
 # para tenerla en ventana propia: botón «Instalar como aplicación» dentro de la página (PWA)
 ```
 
+### Si la página sale vacía o los clics no responden
+
+Un bloqueador de anuncios del navegador (Windscribe, uBlock Origin…) puede cortar rutas locales como
+`/plugins/ads/page.js` solo por el nombre: al ser un import estático de la página, falla todo el arranque y la
+app queda muerta (lista vacía, botones que no responden). Solución: pon `127.0.0.1` / `localhost` en la lista
+blanca del bloqueador y recarga con `Ctrl+F5`. Si aun así no arranca, a los pocos segundos la propia página
+muestra un aviso (el watchdog de `js/boot-check.js`) y la consola (F12) dice qué petición fue bloqueada.
+
 Sin instalar nada (`pip` no hace falta: solo biblioteca estándar de Python). La app de escritorio
 (`desktop/`) **no se toca ni se rompe**: cuando existe, su camino manda; este modo es el *fallback* del
 navegador. En el navegador hay botón **«Instalar como aplicación»** para tenerla en su propia ventana

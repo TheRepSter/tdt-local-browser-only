@@ -974,3 +974,5 @@ setPanel(store.get('panel', true) !== false);
   setInterval(loadEpg, 5 * 60 * 1000);
   setInterval(paintEpg, 30 * 1000); // the programme changes on the hour and the bar advances
 })();
+
+window.__tdtBooted = true; // boot-check.js: si esta bandera no está a los 4 s, el módulo ni siquiera cargó (p. ej. un bloqueador cortó un import) y enseña #bootFail
