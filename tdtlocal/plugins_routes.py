@@ -16,7 +16,7 @@ import urllib.parse
 from typing import TYPE_CHECKING, Any
 
 from . import __version__
-from .plugins import MAX_INSTALL_BYTES, PLUGIN_POLICY, frame_ancestors
+from .plugins import FULL_RUN_POLICY, MAX_INSTALL_BYTES, PLUGIN_POLICY, frame_ancestors
 from .settings_routes import _from_this_machine
 
 if TYPE_CHECKING:
@@ -102,6 +102,19 @@ def handle_get(handler: "Handler", path: str) -> bool:
     elif path.startswith("/plugin/"):
         if _plugin_file_guard(handler):
             _serve_plugin_file(handler, path)
+    elif path.startswith("/plugin-full/"):
+        if _plugin_file_guard(handler):
+            plugin_id = urllib.parse.unquote(path[len("/plugin-full/"):]).split("/")[0][:40]
+            status, ctype, body = handler.app.plugins.serve_full_run(plugin_id)
+            handler._csp_sent = True
+            handler.send_response(status)
+            handler.send_header("Content-Type", ctype)
+            handler.send_header("Content-Length", str(len(body)))
+            handler.send_header("Content-Security-Policy", FULL_RUN_POLICY)
+            handler.send_header("Cache-Control", "no-store")
+            handler.end_headers()
+            if handler.command != "HEAD" and body:
+                handler.wfile.write(body)
     else:
         return False
     return True

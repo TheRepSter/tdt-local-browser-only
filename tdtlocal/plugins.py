@@ -1280,6 +1280,9 @@ PLUGIN_POLICY = (
     "img-src 'self' data: blob:; font-src 'self' data:; media-src 'self' data: blob:; "
     "connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
 )
+# the runner module of a full plugin: imported by the page as a module (no eval), it fetches nothing
+FULL_RUN_POLICY = "default-src 'none'; " + "script-src 'self'"
+
 PLUGIN_TYPES = {
     ".html": "text/html; charset=utf-8", ".htm": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
     ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8",
@@ -1825,6 +1828,38 @@ class PluginStore:
         if not ctype:
             return 415, "text/plain; charset=utf-8", b"tipo de archivo no permitido"
         return 200, ctype, real.read_bytes()
+
+    def serve_full_run(self, plugin_id: str) -> tuple[int, str, bytes]:
+        """The runner module of a full plugin (``/plugin-full/<id>/run.js``): the page imports it as a module — the only
+        way to run code under a ``script-src 'self'`` policy, no eval anywhere. It is served only while the plugin is on
+        AND its fingerprint still matches the approval: a file changed on disk after the approval gets a 409, never code."""
+        with self.lock:
+            p = self.find(plugin_id)
+            if not p or p["kind"] != "full" or p["id"] not in self.enabled:
+                return 404, "text/plain; charset=utf-8", "este plugin no está activado".encode("utf-8")
+            fresh = read_plugin(Path(p["dir"]))
+            if not is_approved(fresh, self.approved):
+                return 409, "text/plain; charset=utf-8", "la huella del código cambió desde que se aprobó: no corre".encode("utf-8")
+            page = fresh.get("files", {}).get("page")
+            if not page:
+                return 404, "text/plain; charset=utf-8", "no tiene alcance «page»".encode("utf-8")
+            try:
+                code = Path(page).read_text(encoding="utf-8")
+                if fingerprint(Path(fresh["dir"])) != fresh["hash"]:
+                    return 409, "text/plain; charset=utf-8", "cambió mientras se leía".encode("utf-8")
+            except (OSError, ValueError):
+                return 409, "text/plain; charset=utf-8", "no se pudo leer".encode("utf-8")
+            name = json.dumps(fresh["id"])
+            body = (
+                "// Generado por el servidor a partir de la carpeta del plugin, cuya huella está aprobada.\n"
+                f"const run = async (tdt) => {{\n"
+                f"  if (!tdt.error) tdt.error = (e) => console.error('[plugin:' + {name} + ']', e);\n"
+                + code
+                + "\n};\n"
+                + f"if (window.tdtPluginHost) window.tdtPluginHost.load({name}, run, 'full');\n"
+                + f"else (window.__tdtQueue = window.__tdtQueue || []).push([{name}, run, 'full']);\n"
+            ).encode("utf-8")
+            return 200, "text/javascript; charset=utf-8", body
 
     # ---- what the page asks of the server for a plugin (storage, config, network): the permission is checked again
     def call(self, plugin_id: str, method: str, args: list[Any]) -> dict[str, Any]:
