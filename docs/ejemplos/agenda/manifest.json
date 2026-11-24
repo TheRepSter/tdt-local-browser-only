@@ -1,0 +1,18 @@
+{
+  "name": "Agenda",
+  "version": "1.0.0",
+  "description": "Qué dan ahora y después en tus canales y recordatorios: marca un programa con la estrella y te avisa cuando empiece. Un clic lo pone. Ejemplo de plugin con permisos que usa la guía, el reproductor y su propio almacenamiento.",
+  "author": "TDT local (ejemplo)",
+  "homepage": "https://github.com/cibernicola/tdt-local",
+  "tdt": {
+    "api": 1,
+    "entry": "index.html",
+    "label": "Agenda",
+    "panel": { "width": 340, "height": 470 },
+    "permissions": ["channels.read", "epg.read", "player.read", "player.control", "storage", "ui.toast"],
+    "settings": {
+      "avisarMin": { "type": "number", "label": "Avisar X minutos antes", "min": 0, "max": 30, "default": 5,
+                     "help": "Cuántos minutos antes de que empiece el programa marcada te avisa" }
+    }
+  }
+}
