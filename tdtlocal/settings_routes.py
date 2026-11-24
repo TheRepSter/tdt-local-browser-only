@@ -22,7 +22,7 @@ from .whisper_models import catalogue, installed_models
 if TYPE_CHECKING:
     from .server import Handler
 
-WRITE_PREFIXES = ("/api/settings", "/api/whisper/download")
+WRITE_PREFIXES = ("/api/settings", "/api/whisper/download", "/api/prefs")
 
 
 def _from_this_machine(handler: Handler) -> bool:
@@ -50,6 +50,8 @@ def handle_get(handler: Handler, path: str) -> bool:
         )
     elif path == "/api/whisper/download":
         handler._json(200, app.models.status())
+    elif path == "/api/prefs":
+        handler._json(200, {"prefs": app.prefs.snapshot()})
     else:
         return False
     return True
@@ -92,6 +94,8 @@ def handle_post(handler: Handler, path: str) -> bool:
     elif path == "/api/whisper/download/cancel":
         app.models.cancel()
         handler._json(200, {"ok": True})
+    elif path == "/api/prefs":
+        handler._json(200, app.prefs.set(body.get("key"), body.get("value")))
     else:
         handler._json(404, {"error": "no existe"})
     return True

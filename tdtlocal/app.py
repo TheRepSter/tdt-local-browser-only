@@ -18,6 +18,7 @@ from .logbook import Logbook
 from . import safemode
 from .devplugins import DevStore
 from .net import Net
+from .prefs import PrefsStore
 from .plugins import PluginStore
 from .rules import RulesStore
 from .scte_watch import ScteWatcher
@@ -36,6 +37,7 @@ class App:
         self.config = config
         self.settings = SettingsStore(config)
         self.settings.load()  # before the services: they read the configuration when they are created
+        self.prefs = PrefsStore(config.data_dir / "prefs.json")  # the page's preferences, kept on the server (ROADMAP: not per-origin)
         self.stop = threading.Event()
         self.hooks = Hooks()  # what the application lets others look at, change or replace (docs/HACKEABLE.md)
         self.trusted = Loader(self.hooks)  # the plugins with all the power that run in the server
