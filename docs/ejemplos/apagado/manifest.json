@@ -1,0 +1,18 @@
+{
+  "name": "Apagado al acabar",
+  "version": "1.0.0",
+  "description": "Silencia el televisor cuando se acaba el programa que estás viendo, o a los X minutos que elijas. Un plugin de ejemplo que lee el estado del reproductor y la guía, y silencia con player.mute.",
+  "author": "TDT local (ejemplo)",
+  "homepage": "https://github.com/cibernicola/tdt-local",
+  "tdt": {
+    "api": 1,
+    "entry": "index.html",
+    "label": "Apagar",
+    "panel": { "width": 300, "height": 220 },
+    "permissions": ["player.read", "player.control", "epg.read", "storage", "ui.toast"],
+    "settings": {
+      "minutos": { "type": "number", "label": "Minutos para el temporizador", "min": 5, "max": 180, "default": 30,
+                   "help": "Lo que dura el botón «A los X minutos»" }
+    }
+  }
+}

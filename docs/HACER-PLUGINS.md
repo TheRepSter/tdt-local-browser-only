@@ -10,6 +10,9 @@ volumen), [`ejemplos/tiempo/`](ejemplos/tiempo/) (la temperatura de una ciudad, 
 [`ejemplos/pantalla/`](ejemplos/pantalla/) (una pantalla de texto sobre el reproductor) y
 [`ejemplos/teletexto/`](ejemplos/teletexto/) (un teletexto completo: red con varios servidores, almacenamiento, la guía, un canvas, una
 fuente propia y pantalla a todo el reproductor; es el más grande y el que mejor enseña cómo se estructura un plugin de verdad).
+Y dos más recientes: [`ejemplos/agenda/`](ejemplos/agenda/) (qué ver hoy en tus canales y recordatorios de programas: guía,
+reproductor, almacenamiento y ajustes del manifest) y [`ejemplos/apagado/`](ejemplos/apagado/) (silencio al acabar el programa
+o a los X minutos: estado del reproductor, guía y temporizador).
 
 ## 1. Qué clase de plugin quieres
 

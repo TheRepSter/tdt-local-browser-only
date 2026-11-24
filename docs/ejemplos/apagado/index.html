@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>Apagado al acabar</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; padding: 12px; font: 14px/1.4 system-ui, sans-serif; color: CanvasText; background: transparent; }
+    h1 { margin: 0 0 6px; font-size: 18px; }
+    button { font: inherit; cursor: pointer; margin: 4px 6px 4px 0; }
+    #estado { font-size: 13px; opacity: 0.85; margin-bottom: 8px; }
+    #aviso { font-size: 13px; color: #e8a020; min-height: 1.2em; }
+    .nota { font-size: 12px; opacity: 0.7; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Apagado al acabar</h1>
+  <div id="estado">…</div>
+  <button id="finPrograma" type="button">Al acabar este programa</button>
+  <button id="temporizador" type="button">A los X minutos</button>
+  <button id="cancelar" type="button" disabled>Cancelar</button>
+  <div id="aviso" role="status"></div>
+  <p class="nota">Un plugin no puede apagar el servidor: silencia el sonido (y avisa). Para cerrar TDT local, usa el botón «Salir» de la página.</p>
+  <script src="/@tdt/sdk.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
