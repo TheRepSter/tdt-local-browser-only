@@ -18,6 +18,7 @@ import { initScte, openScte, syncScte } from './scte.js';
 import { audioFx, initSound } from './sound.js';
 import { $, el, fillLogo } from './dom.js';
 import { matchingWords, ALERT_COOLDOWN_MS } from './lib/alerts.js';
+import { initAppInstall } from './lib/app-install.js';
 import { nearestSecs } from './lib/commands.js';
 import { epgDetail, epgOf, progress } from './lib/epg.js';
 import { categoriesOf, filterChannels, isListed } from './lib/filters.js';
@@ -884,13 +885,17 @@ const host = {
 for (let i = 0; i < TILES; i++) state.tiles.push(new Tile(i, host));
 tilesEl.replaceChildren(...state.tiles.map((t) => t.root));
 // the errors of the page go to the log (Ajustes ▸ Registro), as the app does with the errors of its window
-window.addEventListener('error', (e) => postJson('/api/log', {
-  source: 'página', level: 'ERROR',
-  text: String(e.message || e.type) + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : ''),
-}).catch(() => { /* the log is a courtesy */ }));
-window.addEventListener('unhandledrejection', (e) => postJson('/api/log', {
-  source: 'página', level: 'ERROR', text: 'promesa sin capturar: ' + String(e.reason),
-}).catch(() => { /* the log is a courtesy */ }));
+const sysNotify = initAppInstall(footMsg); // «Instalar como aplicación» + avisos del sistema: solo en navegador (fase 8)
+window.addEventListener('error', (e) => {
+  const text = String(e.message || e.type) + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : '');
+  postJson('/api/log', { source: 'página', level: 'ERROR', text }).catch(() => { /* the log is a courtesy */ });
+  sysNotify('Error en la página de TDT local', text);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const text = 'promesa sin capturar: ' + String(e.reason);
+  postJson('/api/log', { source: 'página', level: 'ERROR', text }).catch(() => { /* the log is a courtesy */ });
+  sysNotify('Error en la página de TDT local', text);
+});
 bindEvents();
 initAssistant({ setKind, play, multiWith, toMosaic });
 initDialogs({
@@ -916,6 +921,7 @@ initScte({
   notify(name, text, count) {
     osd('📢', name + ' · ' + text);
     footMsg('Marca de anuncios en ' + name + ': ' + text + (count > 1 ? ' (y ' + (count - 1) + ' más)' : '') + '.');
+    sysNotify('Marca de anuncios en ' + name, text + (count > 1 ? ' (y ' + (count - 1) + ' más)' : ''));
   },
 });
 initSound({ apply: applyAudio });

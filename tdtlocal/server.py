@@ -41,6 +41,7 @@ CONTENT_TYPES = {
     ".ico": "image/x-icon",
     ".txt": "text/plain; charset=utf-8",
     ".json": "application/json",
+    ".webmanifest": "application/manifest+json",
 }
 CSP = (
     "default-src 'self'; img-src 'self' data:; font-src 'self' data:; media-src 'self' blob: data:; "
