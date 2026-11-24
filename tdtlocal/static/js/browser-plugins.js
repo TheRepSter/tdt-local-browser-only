@@ -70,6 +70,14 @@ async function list() {
   return r.data;
 }
 
+/* The desktop answers setEnabled/rescan with the list itself ({plugins: [...]}), and the settings tab paints
+   data.plugins directly — so every answer here carries the fresh list at the top level too (.list stays for the
+   callers that read it). Without this, painting after an activate crashed with «data.plugins is undefined». */
+async function withPlugins(r) {
+  const l = (r && r.list) || (await list());
+  return { ...r, list: l, plugins: l.plugins };
+}
+
 async function setEnabled(id, on) {
   const res = await postJson('/api/plugins/enable', { id, on }).then(jsonOf);
   let plan = enablePlan(res, null);
@@ -78,17 +86,17 @@ async function setEnabled(id, on) {
     plan = enablePlan(res, rev);
     if (plan.action === 'ask') {
       const yes = await showReview({ ...rev, installs: 'Al aceptarlo se activa con exactamente lo que ves aquí.' }, 'activate');
-      if (!yes) return { ok: false, detail: 'no se ha activado', list: await list() };
+      if (!yes) return withPlugins({ ok: false, detail: 'no se ha activado' });
       const ap = await postJson('/api/plugins/approve', { id, signature: rev.signature }).then(jsonOf);
-      if (!ap.ok) return { ...ap, list: await list() };
+      if (!ap.ok) return withPlugins(ap);
       const res2 = await postJson('/api/plugins/enable', { id, on: true }).then(jsonOf);
       changed();
-      return res2.list ? res2 : { ...res2, list: await list() };
+      return withPlugins(res2);
     }
   }
-  if (plan.action === 'error') return { ok: false, detail: plan.message, list: await list() };
+  if (plan.action === 'error') return withPlugins({ ok: false, detail: plan.message });
   changed();
-  return res.list ? res : { ...res, list: await list() };
+  return withPlugins(res);
 }
 
 async function inspectAndMaybeCommit(body, ctype, extraHeaders) {
