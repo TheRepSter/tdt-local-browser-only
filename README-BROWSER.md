@@ -5,8 +5,9 @@ Este fork añade un modo a **TDT local** (https://github.com/cibernicola/tdt-loc
 aplicación de escritorio Electron. El servidor Python es el único backend y la página el único frontend.
 
 ```bash
-python -m tdtlocal --open        # abre en modo aplicación si tu navegador lo soporta
+python -m tdtlocal --open        # abre tu navegador por defecto con la página
 # o sin --open y entra a mano en http://127.0.0.1:8788
+# para tenerla en ventana propia: botón «Instalar como aplicación» dentro de la página (PWA)
 ```
 
 Sin instalar nada (`pip` no hace falta: solo biblioteca estándar de Python). La app de escritorio

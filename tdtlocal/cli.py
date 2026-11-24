@@ -5,8 +5,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import shutil
-import subprocess
 import sys
 import threading
 import webbrowser
@@ -61,7 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--host", default="127.0.0.1", help="dirección donde escuchar (127.0.0.1)")
     ap.add_argument("--lan", action="store_true", help="escuchar en toda la red local (0.0.0.0), sin autenticación")
     ap.add_argument("--open", action="store_true",
-                    help="abrir el navegador; si hay uno que lo soporta, en modo aplicación (ventana propia)")
+                    help="abrir el navegador por defecto con la página (la ventana propia se consigue instalando la app: «Instalar como aplicación»)")
     ap.add_argument("--quit-button", action="store_true", help="mostrar el botón «Salir» que cierra el servidor")
     ap.add_argument("--safe", action="store_true", help="modo seguro: ningún plugin corre (se saca desde Ajustes ▸ Plugins)")
     ap.add_argument("--verbose", action="store_true", help="registrar cada petición HTTP")
@@ -149,52 +147,6 @@ def configure_logging(config: Config, log_file: Path | None = None) -> None:
     logging.getLogger("tdtlocal.access").setLevel(logging.DEBUG if config.verbose else logging.WARNING)
 
 
-# Browsers that can open an address in "app mode" (their own window, without the browser's chrome) with --app=URL —
-# the closest thing to the desktop app's own window that a normal browser offers (docs/PARIDAD-NAVEGADOR.md, phase 8).
-APP_BROWSER_NAMES = ("chrome", "google-chrome", "google-chrome-stable", "chromium", "brave", "msedge", "edge")
-APP_BROWSER_WIN_PATHS = (
-    r"{LOCALAPPDATA}\Google\Chrome\Application\chrome.exe",
-    r"{PROGRAMFILES}\Google\Chrome\Application\chrome.exe",
-    r"{PROGRAMFILES(X86)}\Google\Chrome\Application\chrome.exe",
-    r"{LOCALAPPDATA}\Microsoft\Edge\Application\msedge.exe",
-    r"{PROGRAMFILES}\Microsoft\Edge\Application\msedge.exe",
-    r"{PROGRAMFILES(X86)}\Microsoft\Edge\Application\msedge.exe",
-    r"{LOCALAPPDATA}\BraveSoftware\Brave-Browser\Application\brave.exe",
-)
-
-
-def find_app_browser(which=shutil.which, env: Mapping[str, str] | None = None) -> str | None:
-    """The first installed browser that accepts ``--app=URL``, or ``None`` (then ``--open`` uses the default browser)."""
-    env = os.environ if env is None else env
-    for name in APP_BROWSER_NAMES:
-        found = which(name)
-        if found:
-            return found
-    if os.name == "nt":
-        for pattern in APP_BROWSER_WIN_PATHS:
-            path = pattern
-            for key in ("LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)"):
-                path = path.replace("{" + key + "}", env.get(key, ""))
-            candidate = Path(path)
-            if candidate.is_file():
-                return str(candidate)
-    return None
-
-
-def open_in_app_mode(url: str, which=shutil.which, popen=subprocess.Popen, env: Mapping[str, str] | None = None) -> bool:
-    """Open ``url`` in a browser's app mode if any is installed; otherwise the default browser. Returns whether it was app mode."""
-    exe = find_app_browser(which=which, env=env)
-    if not exe:
-        webbrowser.open(url)
-        return False
-    try:
-        popen([exe, "--app=" + url])  # the browser's own window: the substitute of the desktop app's window
-        return True
-    except OSError:
-        webbrowser.open(url)
-        return False
-
-
 def run(config: Config, open_browser: bool = False) -> None:
     """Start the server and block until it is stopped (Ctrl+C, SIGTERM or ``POST /api/quit``)."""
     app = App(config)
@@ -216,8 +168,9 @@ def run(config: Config, open_browser: bool = False) -> None:
     if not config.loopback_only:
         log.warning("AVISO: accesible desde la red local; sin autenticación")
     if open_browser:
-        # in app mode when a browser that supports it is installed (its own window, like the desktop app); else the default browser
-        threading.Timer(0.6, open_in_app_mode, args=(url,)).start()
+        # the default browser, plain tab: the app's own window in browser mode comes from installing the PWA
+        # («Instalar como aplicación»), not from a --app flag (docs/PARIDAD-NAVEGADOR.md, phase 8)
+        threading.Timer(0.6, webbrowser.open, args=(url,)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
